@@ -119,7 +119,7 @@ def train(args):
     # model = torch.nn.DataParallel(model, device_ids=[5,7])
     model = model.to(device)  # Send to GPU
 
-    # PYTROCH NOTE: ALWAYS CONSTRUCT OPTIMIZERS AFTER MODEL IS PUSHED TO GPU/CPU,
+    # PYTORCH NOTE: ALWAYS CONSTRUCT OPTIMIZERS AFTER MODEL IS PUSHED TO GPU/CPU
     # optimizer = torch.optim.Adadelta(model.parameters())
     optimizer = torch.optim.Adam(model.parameters(), amsgrad=True)
 

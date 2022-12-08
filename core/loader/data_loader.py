@@ -203,8 +203,6 @@ class section_dataset(data.Dataset):
                 elif self.channel_delta > 0:
                     img = self.seismic[int_number-self.channel_delta:int_number+self.channel_delta+1, :, :]
                     img = np.stack([img[0,:,:], img[img.shape[0]//2,:,:], img[-1,:,:]]).transpose((0,2,1))
-                    if int_number-self.channel_delta < 0:
-                        print('Negative position')
                 else:
                     raise RuntimeError(f'No implementation for self.channel_delta={self.channel_delta}')
         except:

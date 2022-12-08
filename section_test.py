@@ -87,7 +87,7 @@ def test(args):
                     writer.add_image('test/original_image', tb_original_image, i)
 
                     labels_original = labels_original.numpy()[0]
-                    correct_label_decoded = test_set.decode_segmap(numpy.squeeze(labels_original), save_name=pjoin(log_dir,f'grount_truth_{str(i)}.pdf'))
+                    correct_label_decoded = test_set.decode_segmap(numpy.squeeze(labels_original), save_name=pjoin(log_dir,f'plot_grount_truth_{split}_{str(i)}.pdf'))
                     writer.add_image('test/original_label', np_to_tb(correct_label_decoded), i)
                     out = torch.nn.functional.softmax(outputs, dim=1)
 
@@ -97,7 +97,7 @@ def test(args):
                     confidence = out.max(1)[0].cpu().detach()[0]
                     tb_confidence = torchvision.utils.make_grid(confidence, normalize=True, scale_each=True)
 
-                    decoded = test_set.decode_segmap(numpy.squeeze(prediction), save_name=pjoin(log_dir,f'predictions_{str(i)}.pdf'))
+                    decoded = test_set.decode_segmap(numpy.squeeze(prediction), save_name=pjoin(log_dir,f'plot_predictions_{split}_{str(i)}.pdf'))
                     writer.add_image('test/predicted', np_to_tb(decoded), i)
                     writer.add_image('test/confidence', tb_confidence, i)
 
