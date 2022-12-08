@@ -53,7 +53,7 @@ def test(args):
         file_object.write('\n'.join(list_test))
         file_object.close()
 
-        test_set = section_loader(n_channels=args.n_channels, split=split, is_transform=True, augmentations=None)
+        test_set = section_dataset(n_channels=args.n_channels, split=split, is_transform=True, augmentations=None)
         n_classes = test_set.n_classes
 
         test_loader = data.DataLoader(test_set,
