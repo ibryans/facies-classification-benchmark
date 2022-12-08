@@ -60,7 +60,7 @@ def train(args):
     split_train_val(args, per_val=args.per_val)
 
     current_time = datetime.now().strftime('%b%d_%H%M%S')
-    log_dir = os.path.join('runs', current_time + "_{}".format(args.arch))
+    log_dir = os.path.join('runs', f'{current_time}_{args.arch}_delta={args.channel_delta}')
     writer = SummaryWriter(log_dir=log_dir)
     # Setup Augmentations
     if args.aug:
@@ -95,9 +95,10 @@ def train(args):
 
     train_loader = data.DataLoader(train_set, batch_size=args.batch_size,
                                   sampler=CustomSamplerTrain(train_list),
-                                  num_workers=4, shuffle=shuffle)
+                                  num_workers=0, shuffle=shuffle)
     val_loader = data.DataLoader(valid_set, batch_size=args.batch_size,
-                                sampler=CustomSamplerVal(val_list), num_workers=4)
+                                sampler=CustomSamplerVal(val_list), 
+                                num_workers=0)
 
     # Setup Metrics
     running_metrics = runningScore(n_classes)

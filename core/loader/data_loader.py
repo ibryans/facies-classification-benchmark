@@ -206,7 +206,7 @@ class section_dataset(data.Dataset):
                 else:
                     raise RuntimeError(f'No implementation for self.c_delta={self.c_delta}')
         except:
-            raise RuntimeError(f'Batch {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[slice_number,:,:].shape} {self.seismic[slice_number-self.c_delta:slice_number+self.c_delta+1,:,:].shape}')
+            raise RuntimeError(f'INDEX {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[slice_number,:,:].shape} {self.seismic[slice_number-self.c_delta:slice_number+self.c_delta+1,:,:].shape}')
 
         try:        
             if direction == 'x':  
@@ -219,7 +219,7 @@ class section_dataset(data.Dataset):
                 else:
                     raise RuntimeError(f'No implementation for self.c_delta={self.c_delta}')
         except:
-            raise RuntimeError(f'Batch {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[:,slice_number,:].shape} {self.seismic[:,slice_number-self.c_delta:slice_number+self.c_delta+1,:].shape}')
+            raise RuntimeError(f'INDEX {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[:,slice_number,:].shape} {self.seismic[:,slice_number-self.c_delta:slice_number+self.c_delta+1,:].shape}')
         
         if self.augmentations is not None:
             img, lbl = self.augmentations(img, lbl)
