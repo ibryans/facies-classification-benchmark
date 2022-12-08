@@ -147,7 +147,7 @@ class section_dataset(data.Dataset):
     def __init__(self, split='train', channel_delta=0, is_transform=True, augmentations=None):
         self.root = 'data/'
         self.split = split
-        self.channel_delta = channel_delta
+        self.c_delta = channel_delta
         self.is_transform = is_transform
         self.augmentations = augmentations
         self.n_classes = 6 
@@ -193,33 +193,33 @@ class section_dataset(data.Dataset):
     def __getitem__(self, index):
         section_name = self.sections[self.split][index]
         direction, number = section_name.split(sep='_')
-        int_number = int(number)
+        slice_number = int(number)
 
         try:
             if direction == 'i':
-                lbl = self.labels[int_number,:,:].transpose((1,0))
-                if self.channel_delta == 0:
-                    img = self.seismic[int_number,:,:].transpose((1,0))
-                elif self.channel_delta > 0:
-                    img = self.seismic[int_number-self.channel_delta:int_number+self.channel_delta+1, :, :]
+                lbl = self.labels[slice_number,:,:].transpose((1,0))
+                if self.c_delta == 0:
+                    img = self.seismic[slice_number,:,:].transpose((1,0))
+                elif self.c_delta > 0:
+                    img = self.seismic[max(0,slice_number-self.c_delta):min(self.seismic.shape[0],slice_number+self.c_delta+1),:,:]
                     img = np.stack([img[0,:,:], img[img.shape[0]//2,:,:], img[-1,:,:]]).transpose((0,2,1))
                 else:
-                    raise RuntimeError(f'No implementation for self.channel_delta={self.channel_delta}')
+                    raise RuntimeError(f'No implementation for self.c_delta={self.c_delta}')
         except:
-            raise RuntimeError(f'Batch {index}: \t section [{section_name}] \t {self.seismic[int_number,:,:].shape} {self.seismic[int_number-1:int_number+2,:,:].shape}')
+            raise RuntimeError(f'Batch {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[slice_number,:,:].shape} {self.seismic[slice_number-self.c_delta:slice_number+self.c_delta+1,:,:].shape}')
 
         try:        
             if direction == 'x':  
-                lbl = self.labels[:,int_number,:].transpose((1,0))
-                if self.channel_delta == 0:
-                    img = self.seismic[:,int_number,:].transpose((1,0))
-                elif self.channel_delta > 0:
-                    img = self.seismic[:, int_number-self.channel_delta:int_number+self.channel_delta+1, :]
-                    img = np.stack([img[0,:,:], img[img.shape[0]//2,:,:], img[-1,:,:]]).transpose((1,2,0))
+                lbl = self.labels[:,slice_number,:].transpose((1,0))
+                if self.c_delta == 0:
+                    img = self.seismic[:,slice_number,:].transpose((1,0))
+                elif self.c_delta > 0:
+                    img = self.seismic[:,max(0,slice_number-self.c_delta):min(self.seismic.shape[1],slice_number+self.c_delta+1),:]
+                    img = np.stack([img[:,0,:], img[:,img.shape[1]//2,:], img[:,-1,:]]).transpose((0,2,1))
                 else:
-                    raise RuntimeError(f'No implementation for self.channel_delta={self.channel_delta}')
+                    raise RuntimeError(f'No implementation for self.c_delta={self.c_delta}')
         except:
-            raise RuntimeError(f'Batch {index}: \t section [{section_name}] \t {self.seismic[:,int_number,:].shape} {self.seismic[:,int_number-1:int_number+2,:].shape}')
+            raise RuntimeError(f'Batch {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[:,slice_number,:].shape} {self.seismic[:,slice_number-self.c_delta:slice_number+self.c_delta+1,:].shape}')
         
         if self.augmentations is not None:
             img, lbl = self.augmentations(img, lbl)
