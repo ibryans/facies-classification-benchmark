@@ -59,10 +59,12 @@ def train(args):
     # Generate the train and validation sets for the model:
     split_train_val(args, per_val=args.per_val)
 
+    # Setup log files 
     current_time = datetime.now().strftime('%b%d_%H%M%S')
     log_dir = os.path.join('runs', f'{current_time}_{args.arch}_delta={args.channel_delta}')
     writer = SummaryWriter(log_dir=log_dir)
-    # Setup Augmentations
+    
+    # Setup augmentations
     if args.aug:
         data_aug = Compose([RandomRotate(10), RandomHorizontallyFlip(), AddNoise()])
     else:
@@ -145,8 +147,8 @@ def train(args):
         model.train()
         loss_train, total_iteration = 0, 0
 
-        for i, (images, labels) in enumerate(train_loader):
-            print(i, images.shape, labels.shape)
+        for batch, (images, labels) in enumerate(train_loader):
+            # print(batch, images.shape, labels.shape)
             image_original, labels_original = images, labels
             images, labels = images.to(device), labels.to(device)
 
@@ -167,11 +169,11 @@ def train(args):
             optimizer.step()
             total_iteration = total_iteration + 1
 
-            if (i) % 20 == 0:
+            if (batch) % 20 == 0:
                 print("Epoch [%d/%d] training Loss: %.4f" % (epoch + 1, args.n_epoch, loss.item()))
 
             numbers = [0]
-            if i in numbers:
+            if batch in numbers:
                 # number 0 image in the batch
                 tb_original_image = torchvision.utils.make_grid(image_original[0][0], normalize=True, scale_each=True)
                 writer.add_image('train/original_image', tb_original_image, epoch + 1)
@@ -218,7 +220,7 @@ def train(args):
                 model.eval()
                 loss_val, total_iteration_val = 0, 0
 
-                for i_val, (images_val, labels_val) in tqdm(enumerate(val_loader)):
+                for batch, (images_val, labels_val) in tqdm(enumerate(val_loader)):
                     image_original, labels_original = images_val, labels_val
                     images_val, labels_val = images_val.to(device), labels_val.to(device)
 
@@ -232,11 +234,11 @@ def train(args):
 
                     total_iteration_val = total_iteration_val + 1
 
-                    if (i_val) % 20 == 0:
+                    if (batch) % 20 == 0:
                         print("Epoch [%d/%d] validation Loss: %.4f" % (epoch + 1, args.n_epoch, loss.item()))
 
                     numbers = [0]
-                    if i_val in numbers:
+                    if batch in numbers:
                         # number 0 image in the batch
                         tb_original_image = torchvision.utils.make_grid(
                             image_original[0][0], normalize=True, scale_each=True)
@@ -298,8 +300,8 @@ if __name__ == '__main__':
                         help='Architecture to use [\'patch_deconvnet, path_deconvnet_skip, section_deconvnet, section_deconvnet_skip\']')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Cuda device or cpu execution')
-    parser.add_argument('--channel_delta', type=int, default=3,
-                        help='# of input channels')
+    parser.add_argument('--channel_delta', type=int, default=0,
+                        help='# of variable input channels')
     parser.add_argument('--n_epoch', type=int, default=61,
                         help='# of the epochs')
     parser.add_argument('--batch_size', type=int, default=8,
@@ -319,3 +321,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     train(args)
+
+# python section_train.py --channel_delta 3 --device cuda:4

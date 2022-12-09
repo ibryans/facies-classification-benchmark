@@ -204,9 +204,9 @@ class section_dataset(data.Dataset):
                     img = self.seismic[max(0,slice_number-self.c_delta):min(self.seismic.shape[0],slice_number+self.c_delta+1),:,:]
                     img = np.stack([img[0,:,:], img[img.shape[0]//2,:,:], img[-1,:,:]]).transpose((0,2,1))
                 else:
-                    raise RuntimeError(f'No implementation for self.c_delta={self.c_delta}')
+                    raise RuntimeError(f'INLINE - No implementation for self.c_delta={self.c_delta}')
         except:
-            raise RuntimeError(f'INDEX {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[slice_number,:,:].shape} {self.seismic[slice_number-self.c_delta:slice_number+self.c_delta+1,:,:].shape}')
+            raise RuntimeError(f'INLINE - Batch {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[slice_number,:,:].shape} {self.seismic[slice_number-self.c_delta:slice_number+self.c_delta+1,:,:].shape}')
 
         try:        
             if direction == 'x':  
@@ -217,9 +217,9 @@ class section_dataset(data.Dataset):
                     img = self.seismic[:,max(0,slice_number-self.c_delta):min(self.seismic.shape[1],slice_number+self.c_delta+1),:]
                     img = np.stack([img[:,0,:], img[:,img.shape[1]//2,:], img[:,-1,:]]).transpose((0,2,1))
                 else:
-                    raise RuntimeError(f'No implementation for self.c_delta={self.c_delta}')
+                    raise RuntimeError(f'CROSSLINE - No implementation for self.c_delta={self.c_delta}')
         except:
-            raise RuntimeError(f'INDEX {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[:,slice_number,:].shape} {self.seismic[:,slice_number-self.c_delta:slice_number+self.c_delta+1,:].shape}')
+            raise RuntimeError(f'CROSSLINE - Batch {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[:,slice_number,:].shape} {self.seismic[:,slice_number-self.c_delta:slice_number+self.c_delta+1,:].shape}')
         
         if self.augmentations is not None:
             img, lbl = self.augmentations(img, lbl)
