@@ -181,3 +181,5 @@ if __name__ == '__main__':
 # python section_test.py --channel_delta  5 --split both --model_path runs/Dec08_211922_section_deconvnet_delta=5/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_211922_section_deconvnet_delta=5/output.txt
 # python section_test.py --channel_delta  7 --split both --model_path runs/Dec08_212624_section_deconvnet_delta=7/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_212624_section_deconvnet_delta=7/output.txt
 # python section_test.py --channel_delta 10 --split both --model_path runs/Dec09_005410_section_deconvnet_delta=10/section_deconvnet_model.pkl --device cuda:1 > runs/Dec09_005410_section_deconvnet_delta=10/output.txt
+
+# python section_test.py --channel_delta  0 --split both --model_path runs/Dec09_015419_section_deconvnet_aug_delta=0/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec09_015419_section_deconvnet_aug_delta=0/output.txt

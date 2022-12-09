@@ -61,11 +61,12 @@ def train(args):
 
     # Setup log files 
     current_time = datetime.now().strftime('%b%d_%H%M%S')
-    log_dir = os.path.join('runs', f'{current_time}_{args.arch}_delta={args.channel_delta}')
+    log_dir = os.path.join('runs', f'{current_time}_{args.arch}{"_aug" if args.aug else ""}_delta={args.channel_delta}')
     writer = SummaryWriter(log_dir=log_dir)
     
     # Setup augmentations
     if args.aug:
+        print('Feature Augmentation Enabled.')
         data_aug = Compose([RandomRotate(10), RandomHorizontallyFlip(), AddNoise()])
     else:
         data_aug = None
@@ -322,4 +323,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     train(args)
 
-# python section_train.py --channel_delta 3 --device cuda:4
+# python section_train.py --channel_delta 3 --device cuda:1  --aug 1
