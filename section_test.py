@@ -53,7 +53,7 @@ def test(args):
         file_object.write('\n'.join(list_test))
         file_object.close()
 
-        test_set = section_loader(n_channels=args.n_channels, split=split, is_transform=True, augmentations=None)
+        test_set = section_dataset(channel_delta=args.channel_delta, split=split, is_transform=True, augmentations=None)
         n_classes = test_set.n_classes
 
         test_loader = data.DataLoader(test_set,
@@ -68,7 +68,7 @@ def test(args):
         with torch.no_grad():  # operations inside don't track history
             model.eval()
             total_iteration = 0
-            for i, (images, labels) in enumerate(test_loader):
+            for batch, (images, labels) in enumerate(test_loader):
                 total_iteration = total_iteration + 1
                 image_original, labels_original = images, labels
                 images, labels = images.to(device), labels.to(device)
@@ -82,13 +82,13 @@ def test(args):
 
                 numbers = [0, 99, 149, 399, 499]
 
-                if i in numbers:
+                if batch in numbers:
                     tb_original_image = torchvision.utils.make_grid(image_original[0][0], normalize=True, scale_each=True)
-                    writer.add_image('test/original_image', tb_original_image, i)
+                    writer.add_image('test/original_image', tb_original_image, batch)
 
                     labels_original = labels_original.numpy()[0]
-                    correct_label_decoded = test_set.decode_segmap(numpy.squeeze(labels_original), save_name=pjoin(log_dir,f'grount_truth_{str(i)}.pdf'))
-                    writer.add_image('test/original_label', np_to_tb(correct_label_decoded), i)
+                    correct_label_decoded = test_set.decode_segmap(numpy.squeeze(labels_original), save_name=pjoin(log_dir,f'plot_grount_truth_{split}_{str(batch)}.pdf'))
+                    writer.add_image('test/original_label', np_to_tb(correct_label_decoded), batch)
                     out = torch.nn.functional.softmax(outputs, dim=1)
 
                     # this returns the max. channel number:
@@ -97,9 +97,9 @@ def test(args):
                     confidence = out.max(1)[0].cpu().detach()[0]
                     tb_confidence = torchvision.utils.make_grid(confidence, normalize=True, scale_each=True)
 
-                    decoded = test_set.decode_segmap(numpy.squeeze(prediction), save_name=pjoin(log_dir,f'predictions_{str(i)}.pdf'))
-                    writer.add_image('test/predicted', np_to_tb(decoded), i)
-                    writer.add_image('test/confidence', tb_confidence, i)
+                    decoded = test_set.decode_segmap(numpy.squeeze(prediction), save_name=pjoin(log_dir,f'plot_predictions_{split}_{str(batch)}.pdf'))
+                    writer.add_image('test/predicted', np_to_tb(decoded), batch)
+                    writer.add_image('test/confidence', tb_confidence, batch)
 
                     # uncomment if you want to visualize the different class heatmaps
                     unary = outputs.cpu().detach()
@@ -111,7 +111,7 @@ def test(args):
                     for channel in range(0, len(class_names)):
                         decoded_channel = unary[0][channel]
                         tb_channel = torchvision.utils.make_grid(decoded_channel, normalize=True, scale_each=True)
-                        writer.add_image(f'test_classes/_{class_names[channel]}', tb_channel, i)
+                        writer.add_image(f'test_classes/_{class_names[channel]}', tb_channel, batch)
 
         # get scores and save in writer()
         score, class_iou = running_metrics_split.get_scores()
@@ -147,10 +147,11 @@ def test(args):
     print(f'Mean Class Acc: {score["Mean Class Acc: "]:.3f}')
     print(f'Freq Weighted IoU: {score["Freq Weighted IoU: "]:.3f}')
     print(f'Mean IoU: {score["Mean IoU: "]:0.3f}')
+    print('Confusion Matrix', score['confusion_matrix'])
 
     # Save confusion matrix: 
-    confusion = score['confusion_matrix']
-    numpy.savetxt(pjoin(log_dir,'confusion.csv'), confusion, delimiter=" ")
+    numpy.savetxt(pjoin(log_dir,'confusion.csv'), score['confusion_matrix'], delimiter=" ")
+    numpy.save(pjoin(log_dir,'score'), score, allow_pickle=True)
 
     writer.close()
     return
@@ -160,9 +161,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Params')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Cuda device or cpu execution')
-    parser.add_argument('--n_channels', type=int, default=1,
-                        help='# of input channels')
-    parser.add_argument('--model_path', nargs='?', type=str, default='runs/Nov15_215216_section_deconvnet_single/section_deconvnet_model.pkl',
+    parser.add_argument('--channel_delta', type=int, default=0,
+                        help='# of variable input channels')
+    parser.add_argument('--model_path', nargs='?', type=str, default='runs/Dec08_211808_section_deconvnet_delta=3/section_deconvnet_model.pkl',
                         help='Path to the saved model')
     parser.add_argument('--split', nargs='?', type=str, default='both',
                         help='Choose from: "test1", "test2", or "both" to change which region to test on')
@@ -172,3 +173,13 @@ if __name__ == '__main__':
                         help='whether to test inline mode')
     args = parser.parse_args()
     test(args)
+
+
+# python section_test.py --channel_delta  0 --split both --model_path runs/Nov08_145036_section_deconvnet_delta=0/section_deconvnet_model.pkl  --device cuda:1 > runs/Nov08_145036_section_deconvnet_delta=0/output.txt
+# python section_test.py --channel_delta  1 --split both --model_path runs/Nov15_215216_section_deconvnet_delta=1/section_deconvnet_model.pkl  --device cuda:1 > runs/Nov15_215216_section_deconvnet_delta=1/output.txt
+# python section_test.py --channel_delta  3 --split both --model_path runs/Dec08_211808_section_deconvnet_delta=3/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_211808_section_deconvnet_delta=3/output.txt
+# python section_test.py --channel_delta  5 --split both --model_path runs/Dec08_211922_section_deconvnet_delta=5/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_211922_section_deconvnet_delta=5/output.txt
+# python section_test.py --channel_delta  7 --split both --model_path runs/Dec08_212624_section_deconvnet_delta=7/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_212624_section_deconvnet_delta=7/output.txt
+# python section_test.py --channel_delta 10 --split both --model_path runs/Dec09_005410_section_deconvnet_delta=10/section_deconvnet_model.pkl --device cuda:1 > runs/Dec09_005410_section_deconvnet_delta=10/output.txt
+
+# python section_test.py --channel_delta  0 --split both --model_path runs/Dec09_015419_section_deconvnet_aug_delta=0/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec09_015419_section_deconvnet_aug_delta=0/output.txt

@@ -59,18 +59,21 @@ def train(args):
     # Generate the train and validation sets for the model:
     split_train_val(args, per_val=args.per_val)
 
+    # Setup log files 
     current_time = datetime.now().strftime('%b%d_%H%M%S')
-    log_dir = os.path.join('runs', current_time + "_{}".format(args.arch))
+    log_dir = os.path.join('runs', f'{current_time}_{args.arch}{"_aug" if args.aug else ""}_delta={args.channel_delta}')
     writer = SummaryWriter(log_dir=log_dir)
-    # Setup Augmentations
+    
+    # Setup augmentations
     if args.aug:
+        print('Feature Augmentation Enabled.')
         data_aug = Compose([RandomRotate(10), RandomHorizontallyFlip(), AddNoise()])
     else:
         data_aug = None
 
     # Traning accepts augmentation, unlike validation:
-    train_set = section_loader(n_channels=args.n_channels, split='train', is_transform=True, augmentations=data_aug)
-    valid_set = section_loader(n_channels=args.n_channels, split='val', is_transform=True)
+    train_set = section_dataset(channel_delta=args.channel_delta, split='train', is_transform=True, augmentations=data_aug)
+    valid_set = section_dataset(channel_delta=args.channel_delta, split='val', is_transform=True)
 
     n_classes = train_set.n_classes
 
@@ -93,11 +96,12 @@ def train(args):
             self.indices = [idx for (idx, name) in enumerate(val_list) if char[0] in name]
             return (self.indices[i] for i in torch.randperm(len(self.indices)))
 
-    trainloader = data.DataLoader(train_set, batch_size=args.batch_size,
+    train_loader = data.DataLoader(train_set, batch_size=args.batch_size,
                                   sampler=CustomSamplerTrain(train_list),
-                                  num_workers=4, shuffle=shuffle)
-    valloader = data.DataLoader(valid_set, batch_size=args.batch_size,
-                                sampler=CustomSamplerVal(val_list), num_workers=4)
+                                  num_workers=0, shuffle=shuffle)
+    val_loader = data.DataLoader(valid_set, batch_size=args.batch_size,
+                                sampler=CustomSamplerVal(val_list), 
+                                num_workers=0)
 
     # Setup Metrics
     running_metrics = runningScore(n_classes)
@@ -112,13 +116,14 @@ def train(args):
             print("No checkpoint found at '{}'".format(args.resume))
     else:
         # model = get_model(args.arch, args.pretrained, n_classes)
-        model = section_deconvnet(n_channels=args.n_channels, n_classes=n_classes, learned_billinear=False)
+        n_channels = 1 if args.channel_delta == 0 else 3
+        model = section_deconvnet(n_channels=n_channels, n_classes=n_classes, learned_billinear=False)
 
     # Use as many GPUs as we can
     # model = torch.nn.DataParallel(model, device_ids=[5,7])
     model = model.to(device)  # Send to GPU
 
-    # PYTROCH NOTE: ALWAYS CONSTRUCT OPTIMIZERS AFTER MODEL IS PUSHED TO GPU/CPU,
+    # PYTORCH NOTE: ALWAYS CONSTRUCT OPTIMIZERS AFTER MODEL IS PUSHED TO GPU/CPU
     # optimizer = torch.optim.Adadelta(model.parameters())
     optimizer = torch.optim.Adam(model.parameters(), amsgrad=True)
 
@@ -143,8 +148,8 @@ def train(args):
         model.train()
         loss_train, total_iteration = 0, 0
 
-        for i, (images, labels) in enumerate(trainloader):
-            print(i, images.shape, labels.shape)
+        for batch, (images, labels) in enumerate(train_loader):
+            # print(batch, images.shape, labels.shape)
             image_original, labels_original = images, labels
             images, labels = images.to(device), labels.to(device)
 
@@ -161,15 +166,15 @@ def train(args):
 
             # gradient clipping
             if args.clip != 0:
-                torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
             optimizer.step()
             total_iteration = total_iteration + 1
 
-            if (i) % 20 == 0:
+            if (batch) % 20 == 0:
                 print("Epoch [%d/%d] training Loss: %.4f" % (epoch + 1, args.n_epoch, loss.item()))
 
             numbers = [0]
-            if i in numbers:
+            if batch in numbers:
                 # number 0 image in the batch
                 tb_original_image = torchvision.utils.make_grid(image_original[0][0], normalize=True, scale_each=True)
                 writer.add_image('train/original_image', tb_original_image, epoch + 1)
@@ -204,10 +209,8 @@ def train(args):
         loss_train /= total_iteration
         score, class_iou = running_metrics.get_scores()
         writer.add_scalar('train/Pixel Acc', score['Pixel Acc: '], epoch+1)
-        writer.add_scalar('train/Mean Class Acc',
-                          score['Mean Class Acc: '], epoch+1)
-        writer.add_scalar('train/Freq Weighted IoU',
-                          score['Freq Weighted IoU: '], epoch+1)
+        writer.add_scalar('train/Mean Class Acc', score['Mean Class Acc: '], epoch+1)
+        writer.add_scalar('train/Freq Weighted IoU', score['Freq Weighted IoU: '], epoch+1)
         writer.add_scalar('train/Mean_IoU', score['Mean IoU: '], epoch+1)
         running_metrics.reset()
         writer.add_scalar('train/loss', loss_train, epoch+1)
@@ -218,7 +221,7 @@ def train(args):
                 model.eval()
                 loss_val, total_iteration_val = 0, 0
 
-                for i_val, (images_val, labels_val) in tqdm(enumerate(valloader)):
+                for batch, (images_val, labels_val) in tqdm(enumerate(val_loader)):
                     image_original, labels_original = images_val, labels_val
                     images_val, labels_val = images_val.to(device), labels_val.to(device)
 
@@ -232,11 +235,11 @@ def train(args):
 
                     total_iteration_val = total_iteration_val + 1
 
-                    if (i_val) % 20 == 0:
+                    if (batch) % 20 == 0:
                         print("Epoch [%d/%d] validation Loss: %.4f" % (epoch + 1, args.n_epoch, loss.item()))
 
                     numbers = [0]
-                    if i_val in numbers:
+                    if batch in numbers:
                         # number 0 image in the batch
                         tb_original_image = torchvision.utils.make_grid(
                             image_original[0][0], normalize=True, scale_each=True)
@@ -298,8 +301,8 @@ if __name__ == '__main__':
                         help='Architecture to use [\'patch_deconvnet, path_deconvnet_skip, section_deconvnet, section_deconvnet_skip\']')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Cuda device or cpu execution')
-    parser.add_argument('--n_channels', type=int, default=1,
-                        help='# of input channels')
+    parser.add_argument('--channel_delta', type=int, default=0,
+                        help='# of variable input channels')
     parser.add_argument('--n_epoch', type=int, default=61,
                         help='# of the epochs')
     parser.add_argument('--batch_size', type=int, default=8,
@@ -319,3 +322,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     train(args)
+
+# python section_train.py --channel_delta 3 --device cuda:1  --aug 1

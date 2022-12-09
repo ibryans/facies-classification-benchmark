@@ -84,7 +84,7 @@ def test(args):
         file_object.write('\n'.join(list_test))
         file_object.close()
 
-        test_set = section_loader(is_transform=True,
+        test_set = section_dataset(is_transform=True,
                                   split=split,
                                   augmentations=None)
         n_classes = test_set.n_classes

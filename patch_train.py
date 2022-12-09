@@ -100,14 +100,14 @@ def train(args):
     else:
         data_aug = None
 
-    train_set = patch_loader(is_transform=True,
+    train_set = patch_dataset(is_transform=True,
                              split='train',
                              stride=args.stride,
                              patch_size=args.patch_size,
                              augmentations=data_aug)
 
     # Without Augmentation:
-    val_set = patch_loader(is_transform=True,
+    val_set = patch_dataset(is_transform=True,
                            split='val',
                            stride=args.stride,
                            patch_size=args.patch_size)
