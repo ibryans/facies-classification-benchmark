@@ -3,7 +3,6 @@ import torch
 class section_encoder(torch.nn.Module):
     def __init__(self, n_channels=1):
         super(section_encoder, self).__init__()
-        self.unpool = torch.nn.MaxUnpool2d(2, stride=2)
         
         self.conv_block1 = torch.nn.Sequential(
             # conv1_1
@@ -142,6 +141,9 @@ class section_encoder(torch.nn.Module):
 
 class section_decoder(torch.nn.Module):
     def __init__(self, n_classes=4):
+        super(section_decoder, self).__init__()
+        self.unpool = torch.nn.MaxUnpool2d(2, stride=2)
+
         self.deconv_block8 = torch.nn.Sequential(
             # fc6-deconv
             torch.nn.ConvTranspose2d(4096, 512, 3, stride=1),
@@ -272,18 +274,17 @@ class section_decoder(torch.nn.Module):
 
 
 class section_two_stream(torch.nn.Module):
-
     def __init__(self, n_channels=1, n_classes=4):
         super(section_two_stream, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
 
         self.spatial_encoder = section_encoder(n_channels)
-        self.texture_encoder = section_encoder(n_channels)
+        # self.texture_encoder = section_encoder(n_channels)
         self.unique_decoder = section_decoder(n_classes)
         
     def forward(self, feature):
-
-
+        s_feature, s_indices, s_sizes = self.spatial_encoder(feature)
+        # t_feature, t_indices, t_sizes = self.texture_encoder(feature)
+        out = self.unique_decoder(s_feature, s_indices, s_sizes)
         return out
-

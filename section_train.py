@@ -17,6 +17,7 @@ from core.augmentations import Compose, RandomHorizontallyFlip, RandomRotate, Ad
 from core.loader.data_loader import *
 from core.metrics import runningScore
 from core.models.section_deconvnet import section_deconvnet
+from core.models.section_two_stream import section_two_stream
 from core.utils import np_to_tb
 
 # Fix the random seeds: 
@@ -117,7 +118,13 @@ def train(args):
     else:
         # model = get_model(args.arch, args.pretrained, n_classes)
         n_channels = 1 if args.channel_delta == 0 else 3
-        model = section_deconvnet(n_channels=n_channels, n_classes=n_classes, learned_billinear=False)
+        print(f'Creating Model {args.arch.upper()}')
+        if args.arch == 'section_deconvnet':
+            model = section_deconvnet(n_channels=n_channels, n_classes=n_classes, learned_billinear=False)
+        elif args.arch == 'section_two_stream':
+            model = section_two_stream(n_channels=n_channels, n_classes=n_classes)
+        else:
+            raise RuntimeError("Chosen architecture {args.arch} does not exist.")
 
     # Use as many GPUs as we can
     # model = torch.nn.DataParallel(model, device_ids=[5,7])
@@ -297,8 +304,8 @@ def train(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
-    parser.add_argument('--arch', type=str, default='section_deconvnet',
-                        help='Architecture to use [\'patch_deconvnet, path_deconvnet_skip, section_deconvnet, section_deconvnet_skip\']')
+    parser.add_argument('--arch', type=str, default='section_two_stream',
+                        help='Architecture to use [\'section_deconvnet, section_deconvnet_skip, section_two_stream\']')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Cuda device or cpu execution')
     parser.add_argument('--channel_delta', type=int, default=0,

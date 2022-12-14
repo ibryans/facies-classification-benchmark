@@ -1,7 +1,7 @@
 import torchvision.models as models
-from core.models.patch_deconvnet import *
-from core.models.section_deconvnet import *
-from core.models.section_two_stream import *
+from core.models.patch_deconvnet import patch_deconvnet, patch_deconvnet_skip
+from core.models.section_deconvnet import section_deconvnet, section_deconvnet_skip
+from core.models.section_two_stream import section_two_stream
 
 def get_model(name, pretrained, n_channels, n_classes):
     model = _get_model_instance(name)
@@ -22,6 +22,7 @@ def _get_model_instance(name):
             'patch_deconvnet':patch_deconvnet,
             'section_deconvnet_skip': section_deconvnet_skip,
             'patch_deconvnet_skip':patch_deconvnet_skip,
+            'section_two_stream':section_two_stream
         }[name]
     except:
         print(f'Model {name} not available')
