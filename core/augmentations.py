@@ -5,12 +5,12 @@ import numpy as np
 
 from PIL import Image, ImageOps, ImageChops
 
+
 class Compose(object):
     def __init__(self, augmentations):
         self.augmentations = augmentations
 
     def __call__(self, img, mask):
-
         img, mask = Image.fromarray(img, mode=None), Image.fromarray(mask, mode='L')
         assert img.size == mask.size
 
@@ -18,10 +18,12 @@ class Compose(object):
             img, mask = a(img, mask)
         return np.array(img), np.array(mask, dtype=np.uint8)
 
+
 class AddNoise(object):
     def __call__(self, img, mask):
         noise = np.random.normal(loc=0,scale=0.02,size=(img.size[1], img.size[0]))
         return img + noise, mask
+
 
 class RandomCrop(object):
     def __init__(self, size, padding=0):
@@ -73,12 +75,14 @@ class RandomHorizontallyFlip(object):
             return img.transpose(Image.FLIP_TOP_BOTTOM), mask.transpose(Image.FLIP_TOP_BOTTOM)
         return img, mask
     
+
 class RandomVerticallyFlip(object):
     def __call__(self, img, mask):
         if random.random() < 0.5:
             return img.transpose(Image.FLIP_LEFT_RIGHT), mask.transpose(Image.FLIP_LEFT_RIGHT)
         return img, mask
    
+
 class FreeScale(object):
     def __init__(self, size):
         self.size = tuple(reversed(size))  # size: (h, w)
@@ -165,6 +169,7 @@ class RandomRotate(object):
         mask = Image.fromarray(mask_arr)
 
         return img, mask
+
 
 class RandomSized(object):
     def __init__(self, size):

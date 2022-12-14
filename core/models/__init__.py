@@ -1,6 +1,7 @@
 import torchvision.models as models
 from core.models.patch_deconvnet import *
 from core.models.section_deconvnet import *
+from core.models.section_two_stream import *
 
 def get_model(name, pretrained, n_channels, n_classes):
     model = _get_model_instance(name)
