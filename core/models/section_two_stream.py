@@ -280,11 +280,11 @@ class section_two_stream(torch.nn.Module):
         self.n_classes = n_classes
 
         self.spatial_encoder = section_encoder(n_channels)
-        # self.texture_encoder = section_encoder(n_channels)
+        self.texture_encoder = section_encoder(n_channels)
         self.unique_decoder = section_decoder(n_classes)
         
-    def forward(self, feature):
-        s_feature, s_indices, s_sizes = self.spatial_encoder(feature)
-        # t_feature, t_indices, t_sizes = self.texture_encoder(feature)
-        out = self.unique_decoder(s_feature, s_indices, s_sizes)
+    def forward(self, images, gabors):
+        s_feature, s_indices, s_sizes = self.spatial_encoder(images)
+        t_feature, _, _               = self.texture_encoder(gabors)
+        out = self.unique_decoder(s_feature+t_feature, s_indices, s_sizes)
         return out

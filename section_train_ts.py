@@ -16,8 +16,8 @@ import core.loss
 from core.augmentations import Compose, RandomHorizontallyFlip, RandomRotate, AddNoise
 from core.loader.data_loader import *
 from core.metrics import runningScore
-from core.models.section_deconvnet import section_deconvnet
-from core.utils import np_to_tb
+from core.models.section_two_stream import section_two_stream
+from core.utils import np_to_tb, detect_edges
 
 # Fix the random seeds: 
 numpy.random.seed(seed=2022)
@@ -118,7 +118,7 @@ def train(args):
         # model = get_model(args.arch, args.pretrained, n_classes)
         n_channels = 1 if args.channel_delta == 0 else 3
         print(f'Creating Model {args.arch.upper()}')
-        model = section_deconvnet(n_channels=n_channels, n_classes=n_classes, learned_billinear=False)
+        model = section_two_stream(n_channels=n_channels, n_classes=n_classes)
 
     # Use as many GPUs as we can
     # model = torch.nn.DataParallel(model, device_ids=[5,7])
@@ -151,10 +151,11 @@ def train(args):
 
         for batch, (images, labels) in enumerate(train_loader):
             image_original, labels_original = images, labels
-            images, labels = images.to(device), labels.to(device)
+            gabors = detect_edges(images)
+            images, gabors, labels = images.to(device), gabors.to(device), labels.to(device)
 
             optimizer.zero_grad()
-            outputs = model(images)
+            outputs = model(images, gabors)
 
             pred = outputs.detach().max(1)[1].cpu().numpy()
             gt = labels.detach().cpu().numpy()
@@ -223,9 +224,10 @@ def train(args):
 
                 for batch, (images_val, labels_val) in tqdm(enumerate(val_loader)):
                     image_original, labels_original = images_val, labels_val
-                    images_val, labels_val = images_val.to(device), labels_val.to(device)
+                    gabors_val = detect_edges(images_val)
+                    images_val, gabors_val, labels_val = images_val.to(device), gabors_val.to(device), labels_val.to(device)
 
-                    outputs_val = model(images_val)
+                    outputs_val = model(images_val, gabors_val)
                     pred = outputs_val.detach().max(1)[1].cpu().numpy()
                     gt = labels_val.detach().cpu().numpy()
 
@@ -297,15 +299,15 @@ def train(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
-    parser.add_argument('--arch', type=str, default='section_deconvnet',
-                        help='Architecture to use [\'section_deconvnet, section_deconvnet_skip\']')
+    parser.add_argument('--arch', type=str, default='section_two_stream',
+                        help='Architecture to use [\'section_two_stream\']')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Cuda device or cpu execution')
     parser.add_argument('--channel_delta', type=int, default=0,
                         help='# of variable input channels')
     parser.add_argument('--n_epoch', type=int, default=61,
                         help='# of the epochs')
-    parser.add_argument('--batch_size', type=int, default=8,
+    parser.add_argument('--batch_size', type=int, default=4,
                         help='Batch Size')
     parser.add_argument('--resume', type=str, default=None,
                         help='Path to previous saved model to restart from')
@@ -323,4 +325,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     train(args)
 
-# python section_train.py --channel_delta 0 --device cuda:1 --aug
+# python section_train_ts.py --channel_delta 0 --device cuda:1
