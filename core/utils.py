@@ -7,13 +7,13 @@ import torchvision
 from skimage.filters import gabor
 
 
-def detect_edges(torch_batch, frequency=0.1, theta=numpy.pi/2):    
+def detect_gabor_edges(torch_batch, frequency=0.1):    
     gabor_batch = list()
     numpy_batch = numpy.asarray([image.numpy().squeeze() for image in torch_batch])
     for factor in [1., 5./6, 3./4, 2./3, 1./2, 1./3, 1./4, 1./6, 0.]:
         gabor_batch.append([gabor(image, frequency=frequency, theta=factor*numpy.pi)[0] for image in numpy_batch])
     gabor_batch = numpy.max(gabor_batch, axis=0)
-    return torch.from_numpy(numpy_batch).unsqueeze(dim=1)
+    return torch.from_numpy(gabor_batch).unsqueeze(dim=1)
 
 
 def np_to_tb(array):

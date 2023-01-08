@@ -8,19 +8,24 @@ import torchvision
 from os.path import join as pjoin
 from tensorboardX import SummaryWriter
 
+import core.models
+
 from core.loader.data_loader import *
 from core.metrics import runningScore
-from core.utils import np_to_tb
+from core.utils import np_to_tb, detect_gabor_edges
 
 
 def test(args):
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
-
+    
+    # logging setup
     log_dir, model_name = os.path.split(args.model_path)
+    writer = SummaryWriter(log_dir=log_dir)
+    
     # load model:
     model = torch.load(args.model_path, map_location=device)
     model = model.to(device)  # Send to GPU if available
-    writer = SummaryWriter(log_dir=log_dir)
+    two_stream = type(model) is core.models.section_two_stream
 
     class_names = ['upper_ns', 'middle_ns', 'lower_ns', 'rijnland_chalk', 'scruff', 'zechstein']
     running_metrics_overall = runningScore(6)
@@ -71,9 +76,13 @@ def test(args):
             for batch, (images, labels) in enumerate(test_loader):
                 total_iteration = total_iteration + 1
                 image_original, labels_original = images, labels
-                images, labels = images.to(device), labels.to(device)
-
-                outputs = model(images)
+                if two_stream:
+                    gabors = detect_gabor_edges(images, frequency=0.1)
+                    images, gabors, labels = images.to(device), gabors.to(device), labels.to(device)
+                    outputs = model(images, gabors)
+                else:
+                    images, labels = images.to(device), labels.to(device)
+                    outputs = model(images)
 
                 pred = outputs.detach().max(1)[1].cpu().numpy()
                 gt = labels.detach().cpu().numpy()
@@ -174,7 +183,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     test(args)
 
-
+# DELTA EVALUATION
 # python section_test.py --channel_delta  0 --split both --model_path runs/Nov08_145036_section_deconvnet_delta=0/section_deconvnet_model.pkl  --device cuda:1 > runs/Nov08_145036_section_deconvnet_delta=0/output.txt
 # python section_test.py --channel_delta  1 --split both --model_path runs/Nov15_215216_section_deconvnet_delta=1/section_deconvnet_model.pkl  --device cuda:1 > runs/Nov15_215216_section_deconvnet_delta=1/output.txt
 # python section_test.py --channel_delta  3 --split both --model_path runs/Dec08_211808_section_deconvnet_delta=3/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_211808_section_deconvnet_delta=3/output.txt
@@ -182,4 +191,13 @@ if __name__ == '__main__':
 # python section_test.py --channel_delta  7 --split both --model_path runs/Dec08_212624_section_deconvnet_delta=7/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_212624_section_deconvnet_delta=7/output.txt
 # python section_test.py --channel_delta 10 --split both --model_path runs/Dec09_005410_section_deconvnet_delta=10/section_deconvnet_model.pkl --device cuda:1 > runs/Dec09_005410_section_deconvnet_delta=10/output.txt
 
-# python section_test.py --channel_delta  0 --split both --model_path runs/Dec09_015419_section_deconvnet_aug_delta=0/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec09_015419_section_deconvnet_aug_delta=0/output.txt
+# AUGMENTATION EVALUATION
+# python section_test.py --channel_delta  0 --split both --model_path runs/Dec14_200656_section_deconvnet_aug1_delta=0/section_deconvnet_model.pkl  --device cuda:2 > runs/Dec14_200656_section_deconvnet_aug1_delta=0/output.txt
+# python section_test.py --channel_delta  0 --split both --model_path runs/Dec14_221409_section_deconvnet_aug2_delta=0/section_deconvnet_model.pkl  --device cuda:2 > runs/Dec14_221409_section_deconvnet_aug2_delta=0/output.txt
+# python section_test.py --channel_delta  0 --split both --model_path runs/Dec14_231244_section_deconvnet_aug3_delta=0/section_deconvnet_model.pkl  --device cuda:2 > runs/Dec14_231244_section_deconvnet_aug3_delta=0/output.txt
+# python section_test.py --channel_delta  0 --split both --model_path runs/Dec09_015419_section_deconvnet_aug123_delta=0/section_deconvnet_model.pkl  --device cuda:2 > runs/Dec09_015419_section_deconvnet_aug123_delta=0/output.txt
+
+# TWO-STREAM EVALUATION
+# python section_test.py --channel_delta  0 --split both --model_path runs/Dec15_024943_section_two_stream_delta=0/section_two_stream_model.pkl  --device cuda:2 > runs/Dec15_024943_section_two_stream_delta=0/output.txt
+
+# python section_test.py --channel_delta  0 --split both --model_path runs/Dec15_144332_section_deconvnet_delta=0/section_deconvnet_model.pkl  --device cuda:2 > runs/Dec15_144332_section_deconvnet_delta=0/output.txt

@@ -303,7 +303,7 @@ if __name__ == '__main__':
                         help='Cuda device or cpu execution')
     parser.add_argument('--channel_delta', type=int, default=0,
                         help='# of variable input channels')
-    parser.add_argument('--n_epoch', type=int, default=61,
+    parser.add_argument('--n_epoch', type=int, default=60,
                         help='# of the epochs')
     parser.add_argument('--batch_size', type=int, default=8,
                         help='Batch Size')
@@ -317,10 +317,10 @@ if __name__ == '__main__':
                         help='Pretrained models not supported. Keep as False for now.')
     parser.add_argument('--aug', action='store_true',
                         help='Whether to use data augmentation.')
-    parser.add_argument('--class_weights', type=bool, default=False,
+    parser.add_argument('--class_weights', action='store_true',
                         help='Whether to use class weights to reduce the effect of class imbalance')
 
     args = parser.parse_args()
     train(args)
 
-# python section_train.py --channel_delta 0 --device cuda:1 --aug
+# python section_train.py --device cuda:1 --channel_delta 0 --n_epoch 120 --class_weights --aug
