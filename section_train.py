@@ -13,7 +13,7 @@ from torch.utils import data
 from tqdm import tqdm
 
 import core.loss
-from core.augmentations import Compose, RandomHorizontallyFlip, RandomRotate, AddNoise
+from core.augmentations import Compose, RandomHorizontallyFlip, RandomVerticallyFlip, RandomRotate, AddNoise
 from core.loader.data_loader import *
 from core.metrics import runningScore
 from core.models.section_deconvnet import section_deconvnet
@@ -60,14 +60,14 @@ def train(args):
     split_train_val(args, per_val=args.per_val)
 
     # Setup log files 
-    current_time = datetime.now().strftime('%b%d_%H%M%S')
-    log_dir = os.path.join('runs', f'{current_time}_{args.arch}{"_aug" if args.aug else ""}_delta={args.channel_delta}')
+    current_time = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_dir = os.path.join('runs', f'{current_time}_{args.arch}{"_aug" if args.aug else ""}{"_weighted" if args.class_weights else ""}_delta={args.channel_delta}')
     writer = SummaryWriter(log_dir=log_dir)
     
     # Setup augmentations
     if args.aug:
         print('Data Augmentation Enabled.')
-        data_aug = Compose([RandomRotate(10), RandomHorizontallyFlip(), AddNoise()])
+        data_aug = Compose([RandomRotate(10), RandomVerticallyFlip(), AddNoise()])
     else:
         data_aug = None
 
@@ -132,6 +132,7 @@ def train(args):
 
     if args.class_weights:
         # weights are inversely proportional to the frequency of the classes in the training set
+        print('Weighted Loss Enabled.')
         class_weights = torch.tensor([0.7151, 0.8811, 0.5156, 0.9346, 0.9683, 0.9852], device=device, requires_grad=False)
     else:
         class_weights = None
@@ -323,4 +324,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     train(args)
 
-# python section_train.py --device cuda:1 --channel_delta 0 --n_epoch 120 --class_weights --aug
+# python section_train.py --device cuda:1 --channel_delta 0 --class_weights --aug
