@@ -333,7 +333,9 @@ if __name__ == '__main__':
         '--class_weights'
     ]
 
-    args = parser.parse_args(custom_params)
+    args = parser.parse_args(None)
     train(args)
 
-# python section_train.py --device cuda:1 --channel_delta 0 --class_weights --aug
+# nice -n 20 python section_train.py --device cuda:1 --channel_delta 0 --class_weights --aug
+# nice -n 20 python section_train.py --device cuda:2 --channel_delta 3 --class_weights --aug
+# nice -n 20 python section_train.py --device cuda:3 --channel_delta 5 --class_weights --aug

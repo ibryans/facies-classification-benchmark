@@ -11,16 +11,21 @@ class Compose(object):
         self.augmentations = augmentations
 
     def __call__(self, img, mask):
+        mask = Image.fromarray(mask, mode='L')
         if len(img.shape) == 2:
             img = Image.fromarray(img, mode=None) 
+            assert img.size == mask.size
+            for a in self.augmentations:
+                img, mask = a(img, mask)
+            return np.array(img), np.array(mask, dtype=np.uint8)
         elif len(img.shape) == 3:
             img = Image.fromarray(img.transpose(1,2,0), mode='RGB') 
-        else: raise RuntimeError(f'There is no implementation for image dimension {img.shape}')
-        mask = Image.fromarray(mask, mode='L')
-        assert img.size == mask.size
-        for a in self.augmentations:
-            img, mask = a(img, mask)
-        return np.array(img), np.array(mask, dtype=np.uint8)
+            assert img.size == mask.size
+            for a in self.augmentations:
+                img, mask = a(img, mask)
+            return np.array(img).transpose(2,0,1), np.array(mask, dtype=np.uint8)
+        else: 
+            raise RuntimeError(f'There is no implementation for image dimension {img.shape}')
 
 
 class AddNoise(object):
