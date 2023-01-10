@@ -99,10 +99,8 @@ class patch_dataset(data.Dataset):
         img = np.expand_dims(img,0)
         lbl = np.expand_dims(lbl,0)
 
-        img = torch.from_numpy(img)
-        img = img.float()
-        lbl = torch.from_numpy(lbl)
-        lbl = lbl.long()
+        img = torch.from_numpy(img).float()
+        lbl = torch.from_numpy(lbl).long()
                 
         return img, lbl
 
@@ -195,8 +193,8 @@ class section_dataset(data.Dataset):
         direction, number = section_name.split(sep='_')
         slice_number = int(number)
 
-        try:
-            if direction == 'i':
+        if direction == 'i':
+            try:
                 lbl = self.labels[slice_number,:,:].transpose((1,0))
                 if self.c_delta == 0:
                     img = self.seismic[slice_number,:,:].transpose((1,0))
@@ -205,11 +203,10 @@ class section_dataset(data.Dataset):
                     img = np.stack([img[0,:,:], img[img.shape[0]//2,:,:], img[-1,:,:]]).transpose((0,2,1))
                 else:
                     raise RuntimeError(f'INLINE - No implementation for self.c_delta={self.c_delta}')
-        except:
-            raise RuntimeError(f'INLINE - Batch {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[slice_number,:,:].shape} {self.seismic[slice_number-self.c_delta:slice_number+self.c_delta+1,:,:].shape}')
-
-        try:        
-            if direction == 'x':  
+            except:
+                raise RuntimeError(f'INLINE - Batch {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[slice_number,:,:].shape} {self.seismic[slice_number-self.c_delta:slice_number+self.c_delta+1,:,:].shape}')
+        elif direction == 'x':  
+            try:
                 lbl = self.labels[:,slice_number,:].transpose((1,0))
                 if self.c_delta == 0:
                     img = self.seismic[:,slice_number,:].transpose((1,0))
@@ -218,8 +215,10 @@ class section_dataset(data.Dataset):
                     img = np.stack([img[:,0,:], img[:,img.shape[1]//2,:], img[:,-1,:]]).transpose((0,2,1))
                 else:
                     raise RuntimeError(f'CROSSLINE - No implementation for self.c_delta={self.c_delta}')
-        except:
-            raise RuntimeError(f'CROSSLINE - Batch {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[:,slice_number,:].shape} {self.seismic[:,slice_number-self.c_delta:slice_number+self.c_delta+1,:].shape}')
+            except:
+                raise RuntimeError(f'CROSSLINE - Batch {index}: \t section [{section_name}]={direction}_{slice_number} \t {self.seismic[:,slice_number,:].shape} {self.seismic[:,slice_number-self.c_delta:slice_number+self.c_delta+1,:].shape}')
+        else: 
+            raise RuntimeError(f'Seismic direction does not correspond to INLINE (I) or CROSSLINE (X)')
         
         if self.augmentations is not None:
             img, lbl = self.augmentations(img, lbl)

@@ -11,9 +11,13 @@ class Compose(object):
         self.augmentations = augmentations
 
     def __call__(self, img, mask):
-        img, mask = Image.fromarray(img, mode=None), Image.fromarray(mask, mode='L')
+        if len(img.shape) == 2:
+            img = Image.fromarray(img, mode=None) 
+        elif len(img.shape) == 3:
+            img = Image.fromarray(img.transpose(1,2,0), mode='RGB') 
+        else: raise RuntimeError(f'There is no implementation for image dimension {img.shape}')
+        mask = Image.fromarray(mask, mode='L')
         assert img.size == mask.size
-
         for a in self.augmentations:
             img, mask = a(img, mask)
         return np.array(img), np.array(mask, dtype=np.uint8)
@@ -21,7 +25,7 @@ class Compose(object):
 
 class AddNoise(object):
     def __call__(self, img, mask):
-        noise = np.random.normal(loc=0,scale=0.02,size=(img.size[1], img.size[0]))
+        noise = np.random.normal(loc=0,scale=0.02,size=(img.size[1], img.size[0], img.im.bands))
         return img + noise, mask
 
 
@@ -136,8 +140,7 @@ class RandomSizedCrop(object):
                 mask = mask.crop((x1, y1, x1 + w, y1 + h))
                 assert (img.size == (w, h))
 
-                return img.resize((self.size, self.size), Image.BILINEAR), mask.resize((self.size, self.size),
-                                                                                       Image.NEAREST)
+                return img.resize((self.size, self.size), Image.BILINEAR), mask.resize((self.size, self.size), Image.NEAREST)
 
         # Fallback
         scale = Scale(self.size)

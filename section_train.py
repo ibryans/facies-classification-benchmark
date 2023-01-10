@@ -67,7 +67,7 @@ def train(args):
     # Setup augmentations
     if args.aug:
         print('Data Augmentation Enabled.')
-        data_aug = Compose([RandomRotate(10), RandomVerticallyFlip(), AddNoise()])
+        data_aug = Compose([RandomRotate(10), RandomHorizontallyFlip(), AddNoise()])
     else:
         data_aug = None
 
@@ -321,7 +321,19 @@ if __name__ == '__main__':
     parser.add_argument('--class_weights', action='store_true',
                         help='Whether to use class weights to reduce the effect of class imbalance')
 
-    args = parser.parse_args()
+    custom_params = [
+        '--arch',   'section_deconvnet',
+        '--device', 'cpu',
+        '--channel_delta', '1',
+        '--n_epoch', '60',
+        '--batch_size', '8',
+        '--clip', '0.1',
+        '--per_val', '0.1',
+        '--aug', 
+        '--class_weights'
+    ]
+
+    args = parser.parse_args(custom_params)
     train(args)
 
 # python section_train.py --device cuda:1 --channel_delta 0 --class_weights --aug
