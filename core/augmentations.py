@@ -30,7 +30,10 @@ class Compose(object):
 
 class AddNoise(object):
     def __call__(self, img, mask):
-        noise = np.random.normal(loc=0,scale=0.02,size=(img.size[1], img.size[0], img.im.bands))
+        if img.im.bands == 1:
+            noise = np.random.normal(loc=0,scale=0.02,size=(img.size[1], img.size[0]))
+        else:
+            noise = np.random.normal(loc=0,scale=0.02,size=(img.size[1], img.size[0], img.im.bands))
         return img + noise, mask
 
 
