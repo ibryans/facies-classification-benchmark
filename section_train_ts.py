@@ -8,7 +8,6 @@ import torchvision
 from datetime import datetime
 from os.path import join as pjoin
 from sklearn.model_selection import train_test_split
-from tensorboardX import SummaryWriter
 from torch.utils import data
 from tqdm import tqdm
 
@@ -62,7 +61,7 @@ def train(args):
     # Setup log files 
     current_time = datetime.now().strftime('%Y%m%d_%H%M%S')
     log_dir = os.path.join('runs', f'{current_time}_{args.arch}{"_aug" if args.aug else ""}{"_weighted" if args.class_weights else ""}_delta={args.channel_delta}')
-    writer = SummaryWriter(log_dir=log_dir)
+    os.mkdir(log_dir)
     
     # Setup augmentations
     if args.aug:
@@ -141,10 +140,6 @@ def train(args):
     best_iou = -100.0
     class_names = ['upper_ns', 'middle_ns', 'lower_ns', 'rijnland_chalk', 'scruff', 'zechstein']
 
-    for arg in vars(args):
-        text = arg + ': ' + str(getattr(args, arg))
-        writer.add_text('Parameters/', text)
-
     # training
     for epoch in range(args.n_epoch):
         # Training Mode:
@@ -183,11 +178,9 @@ def train(args):
             if batch in numbers:
                 # number 0 image in the batch
                 tb_original_image = torchvision.utils.make_grid(image_original[0][0], normalize=True, scale_each=True)
-                writer.add_image('train/original_image', tb_original_image, epoch + 1)
 
                 labels_original = labels_original.numpy()[0]
                 correct_label_decoded = train_set.decode_segmap(numpy.squeeze(labels_original))
-                writer.add_image('train/original_label', np_to_tb(correct_label_decoded), epoch + 1)
                 out = torch.nn.functional.softmax(outputs, dim=1)
 
                 # this returns the max. channel number:
@@ -197,8 +190,6 @@ def train(args):
                 tb_confidence = torchvision.utils.make_grid(confidence, normalize=True, scale_each=True)
 
                 decoded = train_set.decode_segmap(numpy.squeeze(prediction))
-                writer.add_image('train/predicted', np_to_tb(decoded), epoch + 1)
-                writer.add_image('train/confidence', tb_confidence, epoch + 1)
 
                 unary = outputs.cpu().detach()
                 unary_max = torch.max(unary)
@@ -209,17 +200,11 @@ def train(args):
                 for channel in range(0, len(class_names)):
                     decoded_channel = unary[0][channel]
                     tb_channel = torchvision.utils.make_grid(decoded_channel, normalize=True, scale_each=True)
-                    writer.add_image(f'train_classes/_{class_names[channel]}', tb_channel, epoch + 1)
 
-        # Average metrics, and save in writer()
+        # Average metrics
         loss_train /= total_iteration
         score, class_iou = running_metrics.get_scores()
-        writer.add_scalar('train/Pixel Acc', score['Pixel Acc: '], epoch+1)
-        writer.add_scalar('train/Mean Class Acc', score['Mean Class Acc: '], epoch+1)
-        writer.add_scalar('train/Freq Weighted IoU', score['Freq Weighted IoU: '], epoch+1)
-        writer.add_scalar('train/Mean_IoU', score['Mean IoU: '], epoch+1)
         running_metrics.reset()
-        writer.add_scalar('train/loss', loss_train, epoch+1)
 
         if args.per_val != 0:
             with torch.no_grad():  # operations inside don't track history
@@ -232,7 +217,7 @@ def train(args):
                     if two_stream:
                         gabors_val = detect_gabor_edges(images_val, frequency=0.1)
                         images_val, gabors_val, labels_val = images_val.to(device), gabors_val.to(device), labels_val.to(device)
-                        outputs = model(images_val, gabors_val)
+                        outputs_val = model(images_val, gabors_val)
                     else:
                         images_val, labels_val = images_val.to(device), labels_val.to(device)
                         outputs_val = model(images_val)
@@ -254,10 +239,8 @@ def train(args):
                         # number 0 image in the batch
                         tb_original_image = torchvision.utils.make_grid(
                             image_original[0][0], normalize=True, scale_each=True)
-                        writer.add_image('val/original_image', tb_original_image, epoch)
                         labels_original = labels_original.numpy()[0]
                         correct_label_decoded = train_set.decode_segmap(numpy.squeeze(labels_original))
-                        writer.add_image('val/original_label', np_to_tb(correct_label_decoded), epoch + 1)
 
                         out = torch.nn.functional.softmax(outputs_val, dim=1)
 
@@ -268,28 +251,19 @@ def train(args):
                         tb_confidence = torchvision.utils.make_grid(confidence, normalize=True, scale_each=True)
 
                         decoded = train_set.decode_segmap(numpy.squeeze(prediction))
-                        writer.add_image('val/predicted', np_to_tb(decoded), epoch + 1)
-                        writer.add_image('val/confidence',tb_confidence, epoch + 1)
 
-                        unary = outputs.cpu().detach()
+                        unary = outputs_val.cpu().detach()
                         unary_max, unary_min = torch.max(unary), torch.min(unary)
                         unary = unary.add((-1*unary_min))
                         unary = unary/(unary_max - unary_min)
 
                         for channel in range(0, len(class_names)):
                             tb_channel = torchvision.utils.make_grid(unary[0][channel], normalize=True, scale_each=True)
-                            writer.add_image(f'val_classes/_{class_names[channel]}', tb_channel, epoch + 1)
 
                 score, class_iou = running_metrics_val.get_scores()
                 for k, v in score.items():
                     print(k, v)
 
-                writer.add_scalar('val/Pixel Acc', score['Pixel Acc: '], epoch+1)
-                writer.add_scalar('val/Mean IoU', score['Mean IoU: '], epoch+1)
-                writer.add_scalar('val/Mean Class Acc', score['Mean Class Acc: '], epoch+1)
-                writer.add_scalar('val/Freq Weighted IoU', score['Freq Weighted IoU: '], epoch+1)
-
-                writer.add_scalar('val/loss', loss.item(), epoch+1)
                 running_metrics_val.reset()
 
                 if score['Mean IoU: '] >= best_iou:
@@ -303,20 +277,19 @@ def train(args):
                 model_dir = os.path.join(log_dir, f"{args.arch}_ep{epoch+1}_model.pkl")
                 torch.save(model, model_dir)
 
-    writer.close()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
     parser.add_argument('--arch', type=str, default='section_two_stream', choices=['section_deconvnet', 'section_two_stream'],
                         help='Architecture to use [\'section_two_stream\']')
-    parser.add_argument('--device', type=str, default='cpu',
+    parser.add_argument('--device', type=str, default='cuda:0',
                         help='Cuda device or cpu execution')
     parser.add_argument('--channel_delta', type=int, default=0,
                         help='# of variable input channels')
     parser.add_argument('--n_epoch', type=int, default=120,
                         help='# of the epochs')
-    parser.add_argument('--batch_size', type=int, default=4,
+    parser.add_argument('--batch_size', type=int, default=8,
                         help='Batch Size')
     parser.add_argument('--resume', type=str, default=None,
                         help='Path to previous saved model to restart from')
