@@ -306,5 +306,3 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     train(args)
-
-# python section_train_ts.py --device cuda:1 --channel_delta 0 --class_weights --aug

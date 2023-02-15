@@ -300,14 +300,10 @@ if __name__ == '__main__':
         '--n_epoch', '60',
         '--batch_size', '8',
         '--clip', '0.1',
-        '--per_val', '0.1',
+        '--per_val', '0.1'
         '--aug', 
         '--class_weights'
     ]
 
     args = parser.parse_args(None)
     train(args)
-
-# nice -n 20 python section_train.py --device cuda:1 --channel_delta 0 --class_weights --aug
-# nice -n 20 python section_train.py --device cuda:2 --channel_delta 3 --class_weights --aug
-# nice -n 20 python section_train.py --device cuda:3 --channel_delta 5 --class_weights --aug

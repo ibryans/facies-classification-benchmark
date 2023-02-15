@@ -182,25 +182,3 @@ if __name__ == '__main__':
                         help='whether to test inline mode')
     args = parser.parse_args()
     test(args)
-
-# DELTA EVALUATION
-# python section_test.py --channel_delta  0 --split both --model_path runs/Nov08_145036_section_deconvnet_delta=0/section_deconvnet_model.pkl  --device cuda:1 > runs/Nov08_145036_section_deconvnet_delta=0/output.txt
-# python section_test.py --channel_delta  1 --split both --model_path runs/Nov15_215216_section_deconvnet_delta=1/section_deconvnet_model.pkl  --device cuda:1 > runs/Nov15_215216_section_deconvnet_delta=1/output.txt
-# python section_test.py --channel_delta  3 --split both --model_path runs/Dec08_211808_section_deconvnet_delta=3/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_211808_section_deconvnet_delta=3/output.txt
-# python section_test.py --channel_delta  5 --split both --model_path runs/Dec08_211922_section_deconvnet_delta=5/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_211922_section_deconvnet_delta=5/output.txt
-# python section_test.py --channel_delta  7 --split both --model_path runs/Dec08_212624_section_deconvnet_delta=7/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_212624_section_deconvnet_delta=7/output.txt
-# python section_test.py --channel_delta 10 --split both --model_path runs/Dec09_005410_section_deconvnet_delta=10/section_deconvnet_model.pkl --device cuda:1 > runs/Dec09_005410_section_deconvnet_delta=10/output.txt
-
-# python section_test.py --channel_delta  0 --split both --model_path runs/20230108_201810_section_deconvnet_aug_weighted_delta=0/section_deconvnet_model.pkl  --device cuda:1 > runs/20230108_201810_section_deconvnet_aug_weighted_delta=0/output.txt
-
-
-# AUGMENTATION EVALUATION
-# python section_test.py --channel_delta  0 --split both --model_path runs/Dec14_200656_section_deconvnet_aug1_delta=0/section_deconvnet_model.pkl  --device cuda:2 > runs/Dec14_200656_section_deconvnet_aug1_delta=0/output.txt
-# python section_test.py --channel_delta  0 --split both --model_path runs/Dec14_221409_section_deconvnet_aug2_delta=0/section_deconvnet_model.pkl  --device cuda:2 > runs/Dec14_221409_section_deconvnet_aug2_delta=0/output.txt
-# python section_test.py --channel_delta  0 --split both --model_path runs/Dec14_231244_section_deconvnet_aug3_delta=0/section_deconvnet_model.pkl  --device cuda:2 > runs/Dec14_231244_section_deconvnet_aug3_delta=0/output.txt
-# python section_test.py --channel_delta  0 --split both --model_path runs/Dec09_015419_section_deconvnet_aug123_delta=0/section_deconvnet_model.pkl  --device cuda:2 > runs/Dec09_015419_section_deconvnet_aug123_delta=0/output.txt
-
-# TWO-STREAM EVALUATION
-# python section_test.py --channel_delta  0 --split both --model_path runs/Dec15_024943_section_two_stream_delta=0/section_two_stream_model.pkl  --device cuda:2 > runs/Dec15_024943_section_two_stream_delta=0/output.txt
-
-# python section_test.py --channel_delta  0 --split both --model_path runs/Dec15_144332_section_deconvnet_delta=0/section_deconvnet_model.pkl  --device cuda:2 > runs/Dec15_144332_section_deconvnet_delta=0/output.txt
