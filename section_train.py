@@ -66,7 +66,10 @@ def train(args):
     # Setup augmentations
     if args.aug:
         print('Data Augmentation Enabled.')
-        data_aug = Compose([RandomRotate(10), RandomHorizontallyFlip(), AddNoise()])
+        data_aug = Compose([RandomRotate(10), 
+                            RandomHorizontallyFlip(), 
+                            #RandomVerticallyFlip(), 
+                            AddNoise()])
     else:
         data_aug = None
 
@@ -260,6 +263,7 @@ def train(args):
                     best_iou = score['Mean IoU: ']
                     model_dir = os.path.join(log_dir, f"{args.arch}_model.pkl")
                     torch.save(model, model_dir)
+                    print(f'>>> BEST MODEL SAVED: {best_iou} <<<')
 
         else:  # validation is turned off:
             # just save the latest model:

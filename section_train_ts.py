@@ -270,6 +270,7 @@ def train(args):
                     best_iou = score['Mean IoU: ']
                     model_dir = os.path.join(log_dir, f"{args.arch}_model.pkl")
                     torch.save(model, model_dir)
+                    print(f'>>> BEST MODEL SAVED: {best_iou} <<<')
 
         else:  # validation is turned off:
             # just save the latest model:
