@@ -5,23 +5,37 @@ import numpy as np
 
 from PIL import Image, ImageOps, ImageChops
 
+
 class Compose(object):
     def __init__(self, augmentations):
         self.augmentations = augmentations
 
     def __call__(self, img, mask):
+        mask = Image.fromarray(mask, mode='L')
+        if len(img.shape) == 2:
+            img = Image.fromarray(img, mode=None) 
+            assert img.size == mask.size
+            for a in self.augmentations:
+                img, mask = a(img, mask)
+            return np.array(img), np.array(mask, dtype=np.uint8)
+        elif len(img.shape) == 3:
+            img = Image.fromarray(img.transpose(1,2,0), mode='RGB') 
+            assert img.size == mask.size
+            for a in self.augmentations:
+                img, mask = a(img, mask)
+            return np.array(img).transpose(2,0,1), np.array(mask, dtype=np.uint8)
+        else: 
+            raise RuntimeError(f'There is no implementation for image dimension {img.shape}')
 
-        img, mask = Image.fromarray(img, mode=None), Image.fromarray(mask, mode='L')
-        assert img.size == mask.size
-
-        for a in self.augmentations:
-            img, mask = a(img, mask)
-        return np.array(img), np.array(mask, dtype=np.uint8)
 
 class AddNoise(object):
     def __call__(self, img, mask):
-        noise = np.random.normal(loc=0,scale=0.02,size=(img.size[1], img.size[0]))
+        if img.im.bands == 1:
+            noise = np.random.normal(loc=0,scale=0.02,size=(img.size[1], img.size[0]))
+        else:
+            noise = np.random.normal(loc=0,scale=0.02,size=(img.size[1], img.size[0], img.im.bands))
         return img + noise, mask
+
 
 class RandomCrop(object):
     def __init__(self, size, padding=0):
@@ -73,12 +87,14 @@ class RandomHorizontallyFlip(object):
             return img.transpose(Image.FLIP_TOP_BOTTOM), mask.transpose(Image.FLIP_TOP_BOTTOM)
         return img, mask
     
+
 class RandomVerticallyFlip(object):
     def __call__(self, img, mask):
         if random.random() < 0.5:
             return img.transpose(Image.FLIP_LEFT_RIGHT), mask.transpose(Image.FLIP_LEFT_RIGHT)
         return img, mask
    
+
 class FreeScale(object):
     def __init__(self, size):
         self.size = tuple(reversed(size))  # size: (h, w)
@@ -132,8 +148,7 @@ class RandomSizedCrop(object):
                 mask = mask.crop((x1, y1, x1 + w, y1 + h))
                 assert (img.size == (w, h))
 
-                return img.resize((self.size, self.size), Image.BILINEAR), mask.resize((self.size, self.size),
-                                                                                       Image.NEAREST)
+                return img.resize((self.size, self.size), Image.BILINEAR), mask.resize((self.size, self.size), Image.NEAREST)
 
         # Fallback
         scale = Scale(self.size)
@@ -165,6 +180,7 @@ class RandomRotate(object):
         mask = Image.fromarray(mask_arr)
 
         return img, mask
+
 
 class RandomSized(object):
     def __init__(self, size):

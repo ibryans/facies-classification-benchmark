@@ -12,11 +12,11 @@ from torch.utils import data
 from tqdm import tqdm
 
 import core.loss
+import core.models
 from core.augmentations import Compose, RandomHorizontallyFlip, RandomVerticallyFlip, RandomRotate, AddNoise
 from core.loader.data_loader import *
 from core.metrics import runningScore
-from core.models.section_deconvnet import section_deconvnet
-from core.utils import np_to_tb
+from core.utils import np_to_tb, detect_gabor_edges
 
 # Fix the random seeds: 
 numpy.random.seed(seed=2022)
@@ -66,10 +66,7 @@ def train(args):
     # Setup augmentations
     if args.aug:
         print('Data Augmentation Enabled.')
-        data_aug = Compose([RandomRotate(10), 
-                            RandomHorizontallyFlip(), 
-                            #RandomVerticallyFlip(), 
-                            AddNoise()])
+        data_aug = Compose([RandomRotate(10), RandomVerticallyFlip(), AddNoise()])
     else:
         data_aug = None
 
@@ -120,7 +117,8 @@ def train(args):
         # model = get_model(args.arch, args.pretrained, n_classes)
         n_channels = 1 if args.channel_delta == 0 else 3
         print(f'Creating Model {args.arch.upper()}')
-        model = section_deconvnet(n_channels=n_channels, n_classes=n_classes, learned_billinear=False)
+        model = getattr(core.models, args.arch)(n_channels=n_channels, n_classes=n_classes)
+        two_stream = type(model) is core.models.section_two_stream
 
     # Use as many GPUs as we can
     # model = torch.nn.DataParallel(model, device_ids=[5,7])
@@ -149,11 +147,15 @@ def train(args):
         loss_train, total_iteration = 0, 0
 
         for batch, (images, labels) in enumerate(train_loader):
-            image_original, labels_original = images, labels
-            images, labels = images.to(device), labels.to(device)
-
             optimizer.zero_grad()
-            outputs = model(images)
+            image_original, labels_original = images, labels
+            if two_stream:
+                gabors = detect_gabor_edges(images, frequency=0.1)
+                images, gabors, labels = images.to(device), gabors.to(device), labels.to(device)
+                outputs = model(images, gabors)
+            else:
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
 
             pred = outputs.detach().max(1)[1].cpu().numpy()
             gt = labels.detach().cpu().numpy()
@@ -212,9 +214,14 @@ def train(args):
 
                 for batch, (images_val, labels_val) in tqdm(enumerate(val_loader)):
                     image_original, labels_original = images_val, labels_val
-                    images_val, labels_val = images_val.to(device), labels_val.to(device)
+                    if two_stream:
+                        gabors_val = detect_gabor_edges(images_val, frequency=0.1)
+                        images_val, gabors_val, labels_val = images_val.to(device), gabors_val.to(device), labels_val.to(device)
+                        outputs_val = model(images_val, gabors_val)
+                    else:
+                        images_val, labels_val = images_val.to(device), labels_val.to(device)
+                        outputs_val = model(images_val)
 
-                    outputs_val = model(images_val)
                     pred = outputs_val.detach().max(1)[1].cpu().numpy()
                     gt = labels_val.detach().cpu().numpy()
 
@@ -245,7 +252,7 @@ def train(args):
 
                         decoded = train_set.decode_segmap(numpy.squeeze(prediction))
 
-                        unary = outputs.cpu().detach()
+                        unary = outputs_val.cpu().detach()
                         unary_max, unary_min = torch.max(unary), torch.min(unary)
                         unary = unary.add((-1*unary_min))
                         unary = unary/(unary_max - unary_min)
@@ -272,15 +279,16 @@ def train(args):
                 torch.save(model, model_dir)
 
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
-    parser.add_argument('--arch', type=str, default='section_deconvnet',
-                        help='Architecture to use [\'section_deconvnet, section_deconvnet_skip\']')
+    parser.add_argument('--arch', type=str, default='section_two_stream', choices=['section_deconvnet', 'section_two_stream'],
+                        help='Architecture to use [\'section_two_stream\']')
     parser.add_argument('--device', type=str, default='cuda:0',
                         help='Cuda device or cpu execution')
     parser.add_argument('--channel_delta', type=int, default=0,
                         help='# of variable input channels')
-    parser.add_argument('--n_epoch', type=int, default=60,
+    parser.add_argument('--n_epoch', type=int, default=120,
                         help='# of the epochs')
     parser.add_argument('--batch_size', type=int, default=8,
                         help='Batch Size')
@@ -297,17 +305,5 @@ if __name__ == '__main__':
     parser.add_argument('--class_weights', action='store_true',
                         help='Whether to use class weights to reduce the effect of class imbalance')
 
-    custom_params = [
-        '--arch',   'section_deconvnet',
-        '--device', 'cpu',
-        '--channel_delta', '1',
-        '--n_epoch', '60',
-        '--batch_size', '8',
-        '--clip', '0.1',
-        '--per_val', '0.1'
-        '--aug', 
-        '--class_weights'
-    ]
-
-    args = parser.parse_args(None)
+    args = parser.parse_args()
     train(args)

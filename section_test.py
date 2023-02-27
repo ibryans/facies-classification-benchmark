@@ -6,21 +6,24 @@ import torch
 import torchvision
 
 from os.path import join as pjoin
-from tensorboardX import SummaryWriter
+
+import core.models
 
 from core.loader.data_loader import *
 from core.metrics import runningScore
-from core.utils import np_to_tb
+from core.utils import np_to_tb, detect_gabor_edges
 
 
 def test(args):
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
-
+    
+    # logging setup
     log_dir, model_name = os.path.split(args.model_path)
+    
     # load model:
     model = torch.load(args.model_path, map_location=device)
     model = model.to(device)  # Send to GPU if available
-    writer = SummaryWriter(log_dir=log_dir)
+    two_stream = type(model) is core.models.section_two_stream
 
     class_names = ['upper_ns', 'middle_ns', 'lower_ns', 'rijnland_chalk', 'scruff', 'zechstein']
     running_metrics_overall = runningScore(6)
@@ -71,9 +74,13 @@ def test(args):
             for batch, (images, labels) in enumerate(test_loader):
                 total_iteration = total_iteration + 1
                 image_original, labels_original = images, labels
-                images, labels = images.to(device), labels.to(device)
-
-                outputs = model(images)
+                if two_stream:
+                    gabors = detect_gabor_edges(images, frequency=0.1)
+                    images, gabors, labels = images.to(device), gabors.to(device), labels.to(device)
+                    outputs = model(images, gabors)
+                else:
+                    images, labels = images.to(device), labels.to(device)
+                    outputs = model(images)
 
                 pred = outputs.detach().max(1)[1].cpu().numpy()
                 gt = labels.detach().cpu().numpy()
@@ -84,11 +91,9 @@ def test(args):
 
                 if batch in numbers:
                     tb_original_image = torchvision.utils.make_grid(image_original[0][0], normalize=True, scale_each=True)
-                    writer.add_image('test/original_image', tb_original_image, batch)
 
                     labels_original = labels_original.numpy()[0]
                     correct_label_decoded = test_set.decode_segmap(numpy.squeeze(labels_original), save_name=pjoin(log_dir,f'plot_grount_truth_{split}_{str(batch)}.pdf'))
-                    writer.add_image('test/original_label', np_to_tb(correct_label_decoded), batch)
                     out = torch.nn.functional.softmax(outputs, dim=1)
 
                     # this returns the max. channel number:
@@ -98,8 +103,6 @@ def test(args):
                     tb_confidence = torchvision.utils.make_grid(confidence, normalize=True, scale_each=True)
 
                     decoded = test_set.decode_segmap(numpy.squeeze(prediction), save_name=pjoin(log_dir,f'plot_predictions_{split}_{str(batch)}.pdf'))
-                    writer.add_image('test/predicted', np_to_tb(decoded), batch)
-                    writer.add_image('test/confidence', tb_confidence, batch)
 
                     # uncomment if you want to visualize the different class heatmaps
                     unary = outputs.cpu().detach()
@@ -111,34 +114,13 @@ def test(args):
                     for channel in range(0, len(class_names)):
                         decoded_channel = unary[0][channel]
                         tb_channel = torchvision.utils.make_grid(decoded_channel, normalize=True, scale_each=True)
-                        writer.add_image(f'test_classes/_{class_names[channel]}', tb_channel, batch)
 
-        # get scores and save in writer()
+        # get scores
         score, class_iou = running_metrics_split.get_scores()
-
-        # Add split results to TB:
-        writer.add_text(f'test__{split}/', f'Pixel Acc: {score["Pixel Acc: "]:.3f}', 0)
-        for cdx, class_name in enumerate(class_names):
-            writer.add_text(
-                f'test__{split}/', f'  {class_name}_accuracy {score["Class Accuracy: "][cdx]:.3f}', 0)
-
-        writer.add_text(f'test__{split}/', f'Mean Class Acc: {score["Mean Class Acc: "]:.3f}', 0)
-        writer.add_text(f'test__{split}/', f'Freq Weighted IoU: {score["Freq Weighted IoU: "]:.3f}', 0)
-        writer.add_text(f'test__{split}/', f'Mean IoU: {score["Mean IoU: "]:0.3f}', 0)
-
         running_metrics_split.reset()
 
     # FINAL TEST RESULTS:
     score, class_iou = running_metrics_overall.get_scores()
-
-    # Add split results to TB:
-    writer.add_text('test_final', f'Pixel Acc: {score["Pixel Acc: "]:.3f}', 0)
-    for cdx, class_name in enumerate(class_names):
-        writer.add_text('test_final', f'  {class_name}_accuracy {score["Class Accuracy: "][cdx]:.3f}', 0)
-
-    writer.add_text('test_final', f'Mean Class Acc: {score["Mean Class Acc: "]:.3f}', 0)
-    writer.add_text('test_final', f'Freq Weighted IoU: {score["Freq Weighted IoU: "]:.3f}', 0)
-    writer.add_text('test_final', f'Mean IoU: {score["Mean IoU: "]:0.3f}', 0)
 
     print('--------------- FINAL RESULTS -----------------')
     print(f'Pixel Acc: {score["Pixel Acc: "]:.3f}')
@@ -153,7 +135,6 @@ def test(args):
     numpy.savetxt(pjoin(log_dir,'confusion.csv'), score['confusion_matrix'], delimiter=" ")
     numpy.save(pjoin(log_dir,'score'), score, allow_pickle=True)
 
-    writer.close()
     return
 
 
@@ -173,13 +154,3 @@ if __name__ == '__main__':
                         help='whether to test inline mode')
     args = parser.parse_args()
     test(args)
-
-
-# python section_test.py --channel_delta  0 --split both --model_path runs/Nov08_145036_section_deconvnet_delta=0/section_deconvnet_model.pkl  --device cuda:1 > runs/Nov08_145036_section_deconvnet_delta=0/output.txt
-# python section_test.py --channel_delta  1 --split both --model_path runs/Nov15_215216_section_deconvnet_delta=1/section_deconvnet_model.pkl  --device cuda:1 > runs/Nov15_215216_section_deconvnet_delta=1/output.txt
-# python section_test.py --channel_delta  3 --split both --model_path runs/Dec08_211808_section_deconvnet_delta=3/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_211808_section_deconvnet_delta=3/output.txt
-# python section_test.py --channel_delta  5 --split both --model_path runs/Dec08_211922_section_deconvnet_delta=5/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_211922_section_deconvnet_delta=5/output.txt
-# python section_test.py --channel_delta  7 --split both --model_path runs/Dec08_212624_section_deconvnet_delta=7/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec08_212624_section_deconvnet_delta=7/output.txt
-# python section_test.py --channel_delta 10 --split both --model_path runs/Dec09_005410_section_deconvnet_delta=10/section_deconvnet_model.pkl --device cuda:1 > runs/Dec09_005410_section_deconvnet_delta=10/output.txt
-
-# python section_test.py --channel_delta  0 --split both --model_path runs/Dec09_015419_section_deconvnet_aug_delta=0/section_deconvnet_model.pkl  --device cuda:1 > runs/Dec09_015419_section_deconvnet_aug_delta=0/output.txt
