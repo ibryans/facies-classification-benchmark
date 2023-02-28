@@ -111,8 +111,8 @@ def train(args):
         if args.channel_delta > 0 and args.filter != 'None':
             raise ValueError('Multiple channels and attached filter cannot run jointly.')
         n_channels = 3 if args.channel_delta > 0 else 2 if (args.channel_delta == 0 and args.filter != 'None') else 1
-        print(f'Creating Model {args.arch.upper()}')
         model = section_deconvnet(n_channels=n_channels, n_classes=n_classes, learned_billinear=False)
+        print(f'Creating Model {args.arch.upper()} with {n_channels} input channels, delta={args.channel_delta} and filter={args.filter}')
     else:
         if os.path.isfile(args.resume):
             print("Loading model and optimizer from checkpoint '{}'".format(args.resume))
@@ -211,6 +211,8 @@ def train(args):
 
                 for batch, (images_val, labels_val) in tqdm(enumerate(val_loader)):
                     image_original, labels_original = images_val, labels_val
+                    if args.filter is not None:
+                        images_val = append_filter(images_val, args.filter)
                     images_val, labels_val = images_val.to(device), labels_val.to(device)
 
                     outputs_val = model(images_val)
@@ -289,9 +291,9 @@ if __name__ == '__main__':
 
     custom_params = [
         '--arch',   'section_deconvnet',
-        '--batch_size', '8',
+        '--batch_size', '12',
         '--channel_delta', '0',
-        '--device', 'cpu',
+        '--device', 'cuda:0',
         '--filter', 'gabor',
         '--n_epoch', '60',
         
@@ -301,5 +303,5 @@ if __name__ == '__main__':
         '--class_weights'
     ]
 
-    args = parser.parse_args(custom_params)
+    args = parser.parse_args(None)
     train(args)
