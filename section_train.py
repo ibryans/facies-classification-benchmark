@@ -9,12 +9,14 @@ from datetime import datetime
 from tqdm import tqdm
 
 import core.loss
+import core.models
+
 from core.augmentations import Compose, AddNoise, RandomRotate, RandomVerticallyFlip
-from core.loader.data_loader_F3 import *
-from core.loader.data_manager_F3 import split_train_val, CustomSampler
 from core.metrics import runningScore
-from core.models.section_deconvnet import section_deconvnet
 from core.utils import np_to_tb, append_filter
+
+from core.loader.data_loader_F3 import section_dataset
+from core.loader.data_manager_F3 import split_train_val, CustomSampler
 
 
 # Fix the random seeds: 
@@ -71,7 +73,7 @@ def train(args):
         if args.channel_delta > 0 and args.filter != 'None':
             raise ValueError('Multiple channels and attached filter cannot run jointly.')
         n_channels = 3 if args.channel_delta > 0 else 2 if (args.channel_delta == 0 and args.filter != 'None') else 1
-        model = section_deconvnet(n_channels=n_channels, n_classes=n_classes, learned_billinear=False)
+        model = core.models.section_deconvnet(n_channels=n_channels, n_classes=n_classes, learned_billinear=False)
         print(f'Creating Model {args.arch.upper()} with {n_channels} input channels, delta={args.channel_delta} and filter={args.filter}')
     else:
         if os.path.isfile(args.resume):
@@ -156,8 +158,6 @@ def train(args):
                 for channel in range(0, len(class_names)):
                     decoded_channel = unary[0][channel]
                     tb_channel = torchvision.utils.make_grid(decoded_channel, normalize=True, scale_each=True)
-
-            return
 
         # Average metrics
         loss_train /= total_iteration

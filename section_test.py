@@ -6,7 +6,8 @@ import torch
 import torchvision
 
 import core.models
-from core.loader.data_loader_F3 import *
+
+from core.loader.data_loader_F3 import section_dataset
 from core.metrics import runningScore
 from core.utils import np_to_tb, append_filter, detect_gabor_edges
 
