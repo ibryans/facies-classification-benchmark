@@ -57,7 +57,7 @@ def test(args):
         test_set = section_dataset(channel_delta=args.channel_delta, split=split, is_transform=True, augmentations=None)
         n_classes = test_set.n_classes
 
-        test_loader = data.DataLoader(test_set,
+        test_loader = torch.utils.data.DataLoader(test_set,
                                       batch_size=1,
                                       num_workers=4,
                                       shuffle=False)
@@ -158,5 +158,5 @@ if __name__ == '__main__':
         '--split', 'both',
     ]
 
-    args = parser.parse_args(None)
+    args = parser.parse_args(custom_params)
     test(args)
