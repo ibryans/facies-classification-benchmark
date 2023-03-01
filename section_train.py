@@ -12,11 +12,11 @@ from torch.utils import data
 from tqdm import tqdm
 
 import core.loss
-from core.augmentations import Compose, RandomHorizontallyFlip, RandomVerticallyFlip, RandomRotate, AddNoise
+from core.augmentations import Compose, AddNoise, RandomRotate, RandomVerticallyFlip
 from core.loader.data_loader import *
 from core.metrics import runningScore
 from core.models.section_deconvnet import section_deconvnet
-from core.utils import np_to_tb
+from core.utils import np_to_tb, append_filter
 
 # Fix the random seeds: 
 numpy.random.seed(seed=2022)
@@ -60,16 +60,13 @@ def train(args):
 
     # Setup log files 
     current_time = datetime.now().strftime('%Y%m%d_%H%M%S')
-    log_dir = os.path.join('runs', f'{current_time}_{args.arch}{"_aug" if args.aug else ""}{"_weighted" if args.class_weights else ""}_delta={args.channel_delta}')
+    log_dir = os.path.join('runs', f'{current_time}_{args.arch}{"_aug" if args.aug else ""}{"_weighted" if args.class_weights else ""}_delta={args.channel_delta}_filter={args.filter}')
     os.mkdir(log_dir)
     
     # Setup augmentations
     if args.aug:
         print('Data Augmentation Enabled.')
-        data_aug = Compose([RandomRotate(10), 
-                            RandomHorizontallyFlip(), 
-                            #RandomVerticallyFlip(), 
-                            AddNoise()])
+        data_aug = Compose([RandomRotate(degree=10), RandomVerticallyFlip(), AddNoise()])
     else:
         data_aug = None
 
@@ -110,21 +107,21 @@ def train(args):
     running_metrics_val = runningScore(n_classes)
 
     # Setup Model
-    if args.resume is not None:
+    if args.resume is None:
+        if args.channel_delta > 0 and args.filter != 'None':
+            raise ValueError('Multiple channels and attached filter cannot run jointly.')
+        n_channels = 3 if args.channel_delta > 0 else 2 if (args.channel_delta == 0 and args.filter != 'None') else 1
+        model = section_deconvnet(n_channels=n_channels, n_classes=n_classes, learned_billinear=False)
+        print(f'Creating Model {args.arch.upper()} with {n_channels} input channels, delta={args.channel_delta} and filter={args.filter}')
+    else:
         if os.path.isfile(args.resume):
             print("Loading model and optimizer from checkpoint '{}'".format(args.resume))
             model = torch.load(args.resume)
         else:
             print("No checkpoint found at '{}'".format(args.resume))
-    else:
-        # model = get_model(args.arch, args.pretrained, n_classes)
-        n_channels = 1 if args.channel_delta == 0 else 3
-        print(f'Creating Model {args.arch.upper()}')
-        model = section_deconvnet(n_channels=n_channels, n_classes=n_classes, learned_billinear=False)
 
     # Use as many GPUs as we can
-    # model = torch.nn.DataParallel(model, device_ids=[5,7])
-    model = model.to(device)  # Send to GPU
+    model = model.to(device) 
 
     # PYTORCH NOTE: ALWAYS CONSTRUCT OPTIMIZERS AFTER MODEL IS PUSHED TO GPU/CPU
     # optimizer = torch.optim.Adadelta(model.parameters())
@@ -150,6 +147,8 @@ def train(args):
 
         for batch, (images, labels) in enumerate(train_loader):
             image_original, labels_original = images, labels
+            if args.filter is not None:
+                images = append_filter(images, args.filter)
             images, labels = images.to(device), labels.to(device)
 
             optimizer.zero_grad()
@@ -212,6 +211,8 @@ def train(args):
 
                 for batch, (images_val, labels_val) in tqdm(enumerate(val_loader)):
                     image_original, labels_original = images_val, labels_val
+                    if args.filter is not None:
+                        images_val = append_filter(images_val, args.filter)
                     images_val, labels_val = images_val.to(device), labels_val.to(device)
 
                     outputs_val = model(images_val)
@@ -274,37 +275,31 @@ def train(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
-    parser.add_argument('--arch', type=str, default='section_deconvnet',
-                        help='Architecture to use [\'section_deconvnet, section_deconvnet_skip\']')
-    parser.add_argument('--device', type=str, default='cuda:0',
-                        help='Cuda device or cpu execution')
-    parser.add_argument('--channel_delta', type=int, default=0,
-                        help='# of variable input channels')
-    parser.add_argument('--n_epoch', type=int, default=60,
-                        help='# of the epochs')
-    parser.add_argument('--batch_size', type=int, default=8,
-                        help='Batch Size')
-    parser.add_argument('--resume', type=str, default=None,
-                        help='Path to previous saved model to restart from')
-    parser.add_argument('--clip', type=float, default=0.1,
-                        help='Max norm of the gradients if clipping. Set to zero to disable. ')
-    parser.add_argument('--per_val', type=float, default=0.1,
-                        help='percentage of the training data for validation')
-    parser.add_argument('--pretrained', type=bool, default=False,
-                        help='Pretrained models not supported. Keep as False for now.')
-    parser.add_argument('--aug', action='store_true',
-                        help='Whether to use data augmentation.')
-    parser.add_argument('--class_weights', action='store_true',
-                        help='Whether to use class weights to reduce the effect of class imbalance')
+    
+    parser.add_argument('--arch',          type=str,   default='section_deconvnet', help='Architecture to use [\'section_deconvnet, section_deconvnet_skip\']')
+    parser.add_argument('--batch_size',    type=int,   default=8,                   help='Batch Size')
+    parser.add_argument('--channel_delta', type=int,   default=0,                   help='# of variable input channels')
+    parser.add_argument('--device',        type=str,   default='cuda:0',            help='Cuda device or cpu execution')
+    parser.add_argument('--filter',        type=str,   default='None',              help='Add filter as an extra channel/layer', choices=['None', 'gabor','hessian', 'sobel'])
+    parser.add_argument('--n_epoch',       type=int,   default=60,                  help='# of the epochs')
+
+    parser.add_argument('--resume',        type=str,   default=None,                help='Path to previous saved model to restart from')
+    parser.add_argument('--clip',          type=float, default=0.1,                 help='Max norm of the gradients if clipping. Set to zero to disable. ')
+    parser.add_argument('--per_val',       type=float, default=0.1,                 help='percentage of the training data for validation')
+    parser.add_argument('--pretrained',    type=bool,  default=False,               help='Pretrained models not supported. Keep as False for now.')
+    parser.add_argument('--aug',           action='store_true',                     help='Whether to use data augmentation.')
+    parser.add_argument('--class_weights', action='store_true',                     help='Whether to use class weights to reduce the effect of class imbalance')
 
     custom_params = [
         '--arch',   'section_deconvnet',
-        '--device', 'cpu',
-        '--channel_delta', '1',
+        '--batch_size', '12',
+        '--channel_delta', '0',
+        '--device', 'cuda:0',
+        '--filter', 'gabor',
         '--n_epoch', '60',
-        '--batch_size', '8',
+        
         '--clip', '0.1',
-        '--per_val', '0.1'
+        '--per_val', '0.1',
         '--aug', 
         '--class_weights'
     ]

@@ -1,17 +1,35 @@
 import itertools
 import matplotlib.pyplot as plt
 import numpy
+import skimage
 import torch 
 import torchvision
 
-from skimage.filters import gabor
+
+def append_filter(torch_batch, filter_name, **kwargs):
+    filter_dict = {
+        'gabor'   : (append_gabor_filter, {'frequency':0.1, 'thetas':[1., 3./4, 1./2, 1./4, 0.]}),
+    }
+    if filter_name in filter_dict:
+        f_func, f_args = filter_dict[filter_name]
+        return f_func(torch_batch, **f_args)
+    return torch_batch
 
 
-def detect_gabor_edges(torch_batch, frequency=0.1):    
+def append_gabor_filter(torch_batch, frequency=0.1, thetas=[1., 1./2, 0.]): 
+    gabor_batch = list()
+    numpy_batch = numpy.asarray([image.numpy().squeeze() for image in torch_batch])
+    for image in numpy_batch:
+        gabor_batch.append([skimage.filters.gabor(image, frequency=frequency, theta=theta*numpy.pi)[0] for theta in thetas])
+    gabor_batch = numpy.max(gabor_batch, axis=1)
+    return torch.from_numpy(numpy.stack((numpy_batch, gabor_batch), axis=1))
+
+
+def detect_gabor_edges(torch_batch, frequency=0.1): 
     gabor_batch = list()
     numpy_batch = numpy.asarray([image.numpy().squeeze() for image in torch_batch])
     for factor in [1., 5./6, 3./4, 2./3, 1./2, 1./3, 1./4, 1./6, 0.]:
-        gabor_batch.append([gabor(image, frequency=frequency, theta=factor*numpy.pi)[0] for image in numpy_batch])
+        gabor_batch.append([skimage.filters.gabor(image, frequency=frequency, theta=factor*numpy.pi)[0] for image in numpy_batch])
     gabor_batch = numpy.max(gabor_batch, axis=0)
     return torch.from_numpy(gabor_batch).unsqueeze(dim=1)
 

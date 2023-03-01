@@ -1,6 +1,5 @@
 import argparse
 
-
 import numpy
 import torch
 import torchvision
@@ -11,7 +10,7 @@ import core.models
 
 from core.loader.data_loader import *
 from core.metrics import runningScore
-from core.utils import np_to_tb, detect_gabor_edges
+from core.utils import np_to_tb, append_filter, detect_gabor_edges
 
 
 def test(args):
@@ -79,6 +78,8 @@ def test(args):
                     images, gabors, labels = images.to(device), gabors.to(device), labels.to(device)
                     outputs = model(images, gabors)
                 else:
+                    if args.filter is not None:
+                        images = append_filter(images, args.filter)
                     images, labels = images.to(device), labels.to(device)
                     outputs = model(images)
 
@@ -140,17 +141,23 @@ def test(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Params')
-    parser.add_argument('--device', type=str, default='cpu',
-                        help='Cuda device or cpu execution')
-    parser.add_argument('--channel_delta', type=int, default=0,
-                        help='# of variable input channels')
-    parser.add_argument('--model_path', nargs='?', type=str, default='runs/Dec08_211808_section_deconvnet_delta=3/section_deconvnet_model.pkl',
-                        help='Path to the saved model')
-    parser.add_argument('--split', nargs='?', type=str, default='both',
-                        help='Choose from: "test1", "test2", or "both" to change which region to test on')
-    parser.add_argument('--crossline', nargs='?', type=bool, default=True,
-                        help='whether to test in crossline mode')
-    parser.add_argument('--inline', nargs='?', type=bool, default=True,
-                        help='whether to test inline mode')
-    args = parser.parse_args()
+
+    parser.add_argument('--model_path',    type=str,                             help='Path to the saved model')
+    parser.add_argument('--channel_delta', type=int,             default=0,      help='# of variable input channels')
+    parser.add_argument('--device',        type=str,             default='cpu',  help='Cuda device or cpu execution')
+    parser.add_argument('--filter',        type=str,             default='None', help='Add filter as an extra channel/layer', choices=['None', 'gabor','hessian', 'sobel'])
+    
+    parser.add_argument('--split',         type=str,  nargs='?', default='both', help='Choose from: "test1", "test2", or "both" to change which region to test on')
+    parser.add_argument('--crossline',     type=bool, nargs='?', default=True,   help='whether to test in crossline mode')
+    parser.add_argument('--inline',        type=bool, nargs='?', default=True,   help='whether to test inline mode')
+    
+    custom_params = [
+        '--model_path', 'runs/20230228_114334_section_deconvnet_aug_weighted_delta=0_filter=gabor/section_deconvnet_model.pkl',
+        '--channel_delta', '0',
+        '--device', 'cuda:0',
+        '--filter', 'gabor',
+        '--split', 'both',
+    ]
+
+    args = parser.parse_args(None)
     test(args)
