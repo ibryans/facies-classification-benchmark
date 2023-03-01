@@ -275,6 +275,7 @@ def train(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
+    
     parser.add_argument('--arch',          type=str,   default='section_deconvnet', help='Architecture to use [\'section_deconvnet, section_deconvnet_skip\']')
     parser.add_argument('--batch_size',    type=int,   default=8,                   help='Batch Size')
     parser.add_argument('--channel_delta', type=int,   default=0,                   help='# of variable input channels')
