@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 
 import torchvision.utils as vutils
-from core.loader.data_loader import *
+from core.loader.data_loader_F3 import *
 from core.metrics import runningScore
 from core.utils import np_to_tb
 

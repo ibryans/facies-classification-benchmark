@@ -1,14 +1,12 @@
 import argparse
 
 import numpy
+import os
 import torch
 import torchvision
 
-from os.path import join as pjoin
-
 import core.models
-
-from core.loader.data_loader import *
+from core.loader.data_loader_F3 import *
 from core.metrics import runningScore
 from core.utils import np_to_tb, append_filter, detect_gabor_edges
 
@@ -21,7 +19,7 @@ def test(args):
     
     # load model:
     model = torch.load(args.model_path, map_location=device)
-    model = model.to(device)  # Send to GPU if available
+    model = model.to(device)
     two_stream = type(model) is core.models.section_two_stream
 
     class_names = ['upper_ns', 'middle_ns', 'lower_ns', 'rijnland_chalk', 'scruff', 'zechstein']
@@ -34,7 +32,7 @@ def test(args):
 
     for sdx, split in enumerate(splits):
         # define indices of the array
-        labels = numpy.load(pjoin('data', 'test_once', split + '_labels.npy'))
+        labels = numpy.load(os.path.join('data', 'test_once', split + '_labels.npy'))
         irange, xrange, depth = labels.shape
 
         if args.inline:
@@ -51,7 +49,7 @@ def test(args):
 
         list_test = i_list + x_list
 
-        file_object = open(pjoin('data', 'splits', 'section_' + split + '.txt'), 'w')
+        file_object = open(os.path.join('data', 'splits', 'section_' + split + '.txt'), 'w')
         file_object.write('\n'.join(list_test))
         file_object.close()
 
@@ -94,7 +92,7 @@ def test(args):
                     tb_original_image = torchvision.utils.make_grid(image_original[0][0], normalize=True, scale_each=True)
 
                     labels_original = labels_original.numpy()[0]
-                    correct_label_decoded = test_set.decode_segmap(numpy.squeeze(labels_original), save_name=pjoin(log_dir,f'plot_grount_truth_{split}_{str(batch)}.pdf'))
+                    correct_label_decoded = test_set.decode_segmap(numpy.squeeze(labels_original), save_name=os.path.join(log_dir,f'plot_grount_truth_{split}_{str(batch)}.pdf'))
                     out = torch.nn.functional.softmax(outputs, dim=1)
 
                     # this returns the max. channel number:
@@ -103,7 +101,7 @@ def test(args):
                     confidence = out.max(1)[0].cpu().detach()[0]
                     tb_confidence = torchvision.utils.make_grid(confidence, normalize=True, scale_each=True)
 
-                    decoded = test_set.decode_segmap(numpy.squeeze(prediction), save_name=pjoin(log_dir,f'plot_predictions_{split}_{str(batch)}.pdf'))
+                    decoded = test_set.decode_segmap(numpy.squeeze(prediction), save_name=os.path.join(log_dir,f'plot_predictions_{split}_{str(batch)}.pdf'))
 
                     # uncomment if you want to visualize the different class heatmaps
                     unary = outputs.cpu().detach()
@@ -133,8 +131,8 @@ def test(args):
     print('Confusion Matrix', score['confusion_matrix'])
 
     # Save confusion matrix: 
-    numpy.savetxt(pjoin(log_dir,'confusion.csv'), score['confusion_matrix'], delimiter=" ")
-    numpy.save(pjoin(log_dir,'score'), score, allow_pickle=True)
+    numpy.savetxt(os.path.join(log_dir,'confusion.csv'), score['confusion_matrix'], delimiter=" ")
+    numpy.save(os.path.join(log_dir,'score'), score, allow_pickle=True)
 
     return
 

@@ -16,7 +16,7 @@ import core.loss
 import torchvision.utils as vutils
 from core.augmentations import (
     Compose, RandomHorizontallyFlip, RandomRotate, AddNoise)
-from core.loader.data_loader import *
+from core.loader.data_loader_F3 import *
 from core.metrics import runningScore
 from core.models import get_model
 from core.utils import np_to_tb

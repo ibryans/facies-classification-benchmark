@@ -14,7 +14,7 @@ from tqdm import tqdm
 import core.loss
 import core.models
 from core.augmentations import Compose, RandomHorizontallyFlip, RandomVerticallyFlip, RandomRotate, AddNoise
-from core.loader.data_loader import *
+from core.loader.data_loader_F3 import *
 from core.metrics import runningScore
 from core.utils import np_to_tb, detect_gabor_edges
 

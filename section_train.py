@@ -6,17 +6,16 @@ import torch
 import torchvision
 
 from datetime import datetime
-from os.path import join as pjoin
-from sklearn.model_selection import train_test_split
-from torch.utils import data
 from tqdm import tqdm
 
 import core.loss
 from core.augmentations import Compose, AddNoise, RandomRotate, RandomVerticallyFlip
-from core.loader.data_loader import *
+from core.loader.data_loader_F3 import *
+from core.loader.data_manager_F3 import split_train_val, CustomSampler
 from core.metrics import runningScore
 from core.models.section_deconvnet import section_deconvnet
 from core.utils import np_to_tb, append_filter
+
 
 # Fix the random seeds: 
 numpy.random.seed(seed=2022)
@@ -24,33 +23,6 @@ torch.backends.cudnn.deterministic = True
 torch.manual_seed(2022)
 if torch.cuda.is_available(): 
     torch.cuda.manual_seed_all(2022)
-
-
-def split_train_val(args, per_val=0.1):
-    # create inline and crossline sections for training and validation:
-    loader_type = 'section'
-    labels = numpy.load(pjoin('data', 'train', 'train_labels.npy'))
-    i_list = list(range(labels.shape[0]))
-    i_list = ['i_'+str(inline) for inline in i_list]
-
-    x_list = list(range(labels.shape[1]))
-    x_list = ['x_'+str(crossline) for crossline in x_list]
-
-    list_train_val = i_list + x_list
-
-    # create train and test splits:
-    list_train, list_val = train_test_split(list_train_val, test_size=per_val, shuffle=True)
-
-    # write to files to disK:
-    file_object = open(pjoin('data', 'splits', loader_type + '_train_val.txt'), 'w')
-    file_object.write('\n'.join(list_train_val))
-    file_object.close()
-    file_object = open(pjoin('data', 'splits', loader_type + '_train.txt'), 'w')
-    file_object.write('\n'.join(list_train))
-    file_object.close()
-    file_object = open(pjoin('data', 'splits', loader_type + '_val.txt'), 'w')
-    file_object.write('\n'.join(list_val))
-    file_object.close()
 
 
 def train(args):
@@ -78,29 +50,17 @@ def train(args):
 
     # Create sampler:
     shuffle = False  # must turn False if using a custom sampler
-    with open(pjoin('data', 'splits', 'section_train.txt'), 'r') as file_buffer:
+    with open(os.path.join('data', 'splits', 'section_train.txt'), 'r') as file_buffer:
         train_list = file_buffer.read().splitlines()
-    with open(pjoin('data', 'splits', 'section_val.txt'), 'r') as file_buffer:
+    with open(os.path.join('data', 'splits', 'section_val.txt'), 'r') as file_buffer:
         val_list = file_buffer.read().splitlines()
 
-    class CustomSamplerTrain(torch.utils.data.Sampler):
-        def __iter__(self):
-            char = ['i' if numpy.random.randint(2) == 1 else 'x']
-            self.indices = [idx for (idx, name) in enumerate(train_list) if char[0] in name]
-            return (self.indices[i] for i in torch.randperm(len(self.indices)))
-
-    class CustomSamplerVal(torch.utils.data.Sampler):
-        def __iter__(self):
-            char = ['i' if numpy.random.randint(2) == 1 else 'x']
-            self.indices = [idx for (idx, name) in enumerate(val_list) if char[0] in name]
-            return (self.indices[i] for i in torch.randperm(len(self.indices)))
-
-    train_loader = data.DataLoader(train_set, batch_size=args.batch_size,
-                                  sampler=CustomSamplerTrain(train_list),
-                                  num_workers=0, shuffle=shuffle)
-    val_loader = data.DataLoader(valid_set, batch_size=args.batch_size,
-                                sampler=CustomSamplerVal(val_list), 
-                                num_workers=0)
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size,
+                                                sampler=CustomSampler(train_list),
+                                                num_workers=0, shuffle=shuffle)
+    val_loader = torch.utils.data.DataLoader(valid_set, batch_size=args.batch_size,
+                                                sampler=CustomSampler(val_list), 
+                                                num_workers=0)
 
     # Setup Metrics
     running_metrics = runningScore(n_classes)
@@ -124,14 +84,13 @@ def train(args):
     model = model.to(device) 
 
     # PYTORCH NOTE: ALWAYS CONSTRUCT OPTIMIZERS AFTER MODEL IS PUSHED TO GPU/CPU
-    # optimizer = torch.optim.Adadelta(model.parameters())
     optimizer = torch.optim.Adam(model.parameters(), amsgrad=True)
+    # optimizer = torch.optim.Adadelta(model.parameters())
 
     loss_fn = core.loss.cross_entropy
 
     if args.class_weights:
-        # weights are inversely proportional to the frequency of the classes in the training set
-        print('Weighted Loss Enabled.')
+        print('Weighted Loss Enabled.') # weights are inversely proportional to the frequency of the classes in the training set
         class_weights = torch.tensor([0.7151, 0.8811, 0.5156, 0.9346, 0.9683, 0.9852], device=device, requires_grad=False)
     else:
         class_weights = None
@@ -197,6 +156,8 @@ def train(args):
                 for channel in range(0, len(class_names)):
                     decoded_channel = unary[0][channel]
                     tb_channel = torchvision.utils.make_grid(decoded_channel, normalize=True, scale_each=True)
+
+            return
 
         # Average metrics
         loss_train /= total_iteration
@@ -304,5 +265,5 @@ if __name__ == '__main__':
         '--class_weights'
     ]
 
-    args = parser.parse_args(None)
+    args = parser.parse_args(custom_params)
     train(args)
