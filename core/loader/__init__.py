@@ -1,4 +1,6 @@
-from core.loader.data_loader_F3 import *
+from core.loader.data_loader_NL import *
+from core.loader.data_loader_NS import *
+from core.loader.data_loader_NZ import *
 
 def get_loader(arch):
     if 'patch' in arch: 

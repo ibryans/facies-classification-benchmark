@@ -119,9 +119,11 @@ dmypy.json
 .pyre/
 
 # Other:
-data/
-.idea*
+data_NL/
+data_NZ/
 runs/
+
+.idea*
 .vscode/settings.json
 .vscode/settings.json
 .~lock.weak_results.ods#

@@ -17,10 +17,10 @@ class CustomSampler(torch.utils.data.Sampler):
         return (self.indices[i] for i in torch.randperm(len(self.indices)))
 
 
-def split_train_val(args, per_val=0.1):
+def split_train_val(args, per_val=0.1, data_folder='data_NL'):
     # create inline and crossline sections for training and validation:
     loader_type = 'section'
-    labels = numpy.load(os.path.join('data', 'train', 'train_labels.npy'))
+    labels = numpy.load(os.path.join(data_folder, 'train', 'train_labels.npy'))
     i_list = list(range(labels.shape[0]))
     i_list = ['i_'+str(inline) for inline in i_list]
 
@@ -33,12 +33,12 @@ def split_train_val(args, per_val=0.1):
     list_train, list_val = train_test_split(list_train_val, test_size=per_val, shuffle=True)
 
     # write to files to disK:
-    file_object = open(os.path.join('data', 'splits', loader_type + '_train_val.txt'), 'w')
+    file_object = open(os.path.join(data_folder, 'splits', loader_type + '_train_val.txt'), 'w')
     file_object.write('\n'.join(list_train_val))
     file_object.close()
-    file_object = open(os.path.join('data', 'splits', loader_type + '_train.txt'), 'w')
+    file_object = open(os.path.join(data_folder, 'splits', loader_type + '_train.txt'), 'w')
     file_object.write('\n'.join(list_train))
     file_object.close()
-    file_object = open(os.path.join('data', 'splits', loader_type + '_val.txt'), 'w')
+    file_object = open(os.path.join(data_folder, 'splits', loader_type + '_val.txt'), 'w')
     file_object.write('\n'.join(list_val))
     file_object.close()

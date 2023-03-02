@@ -7,12 +7,22 @@ import torchvision
 
 import core.models
 
-from core.loader.data_loader_F3 import section_dataset
 from core.metrics import runningScore
 from core.utils import np_to_tb, append_filter, detect_gabor_edges
 
+from core.loader.data_loader_NL import section_dataset
+
+
+data_folders = {
+    'NL' : 'data_NL',
+    'NS' : 'data_NS',
+    'NZ' : 'data_NZ',
+}
+
 
 def test(args):
+    # Obtaining data folder and setting CPU/GPU device
+    data_folder = data_folders[args.dataset]
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
     
     # logging setup
@@ -33,7 +43,7 @@ def test(args):
 
     for sdx, split in enumerate(splits):
         # define indices of the array
-        labels = numpy.load(os.path.join('data', 'test_once', split + '_labels.npy'))
+        labels = numpy.load(os.path.join(data_folder, 'test_once', split + '_labels.npy'))
         irange, xrange, depth = labels.shape
 
         if args.inline:
@@ -50,7 +60,7 @@ def test(args):
 
         list_test = i_list + x_list
 
-        file_object = open(os.path.join('data', 'splits', 'section_' + split + '.txt'), 'w')
+        file_object = open(os.path.join(data_folder, 'splits', 'section_' + split + '.txt'), 'w')
         file_object.write('\n'.join(list_test))
         file_object.close()
 
@@ -135,8 +145,6 @@ def test(args):
     numpy.savetxt(os.path.join(log_dir,'confusion.csv'), score['confusion_matrix'], delimiter=" ")
     numpy.save(os.path.join(log_dir,'score'), score, allow_pickle=True)
 
-    return
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Params')
@@ -146,6 +154,7 @@ if __name__ == '__main__':
     parser.add_argument('--device',        type=str,             default='cpu',  help='Cuda device or cpu execution')
     parser.add_argument('--filter',        type=str,             default='None', help='Add filter as an extra channel/layer', choices=['None', 'gabor','hessian', 'sobel'])
     
+    parser.add_argument('--dataset',       type=str,             default='NL',   help='Name of the adopted dataset: NL (Netherlands F3 Block), NS (Nova Scotia Penobscot), NZ (New Zealand Petroleum).', choices=['NL', 'NS', 'NZ'])
     parser.add_argument('--split',         type=str,  nargs='?', default='both', help='Choose from: "test1", "test2", or "both" to change which region to test on')
     parser.add_argument('--crossline',     type=bool, nargs='?', default=True,   help='whether to test in crossline mode')
     parser.add_argument('--inline',        type=bool, nargs='?', default=True,   help='whether to test inline mode')
@@ -153,10 +162,11 @@ if __name__ == '__main__':
     custom_params = [
         '--model_path', 'runs/20230228_114334_section_deconvnet_aug_weighted_delta=0_filter=gabor/section_deconvnet_model.pkl',
         '--channel_delta', '0',
+        '--dataset', 'NL',
         '--device', 'cuda:0',
         '--filter', 'gabor',
         '--split', 'both',
     ]
 
-    args = parser.parse_args(custom_params)
+    args = parser.parse_args(None)
     test(args)

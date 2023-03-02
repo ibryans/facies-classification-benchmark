@@ -1,21 +1,20 @@
-import os
-from os.path import join as pjoin
 import collections
 import json
+import numpy
+import os
 import torch
-import numpy as np
+
 import matplotlib.pyplot as plt
 
-from torch.utils import data
 
-class patch_dataset(data.Dataset):
+class patch_dataset(torch.utils.data.Dataset):
     """
         Data loader for the patch-based deconvnet
     """
-    def __init__(self, split='train', stride=30 ,patch_size=99, is_transform=True,
-                 augmentations=None):
+    def __init__(self, split='train', stride=30 ,patch_size=99, data_folder='data_NL', is_transform=True, augmentations=None):
         self.root = 'data/'
         self.split = split
+        self.data_folder = data_folder
         self.is_transform = is_transform
         self.augmentations = augmentations
         self.n_classes = 6 
@@ -26,30 +25,28 @@ class patch_dataset(data.Dataset):
 
         if 'test' not in self.split: 
             # Normal train/val mode
-            self.seismic = self.pad_volume(np.load(pjoin('data','train','train_seismic.npy')))
-            self.labels = self.pad_volume(np.load(pjoin('data','train','train_labels.npy')))
+            self.seismic = self.pad_volume(numpy.load(os.path.join(self.data_folder,'train','train_seismic.npy')))
+            self.labels = self.pad_volume(numpy.load(os.path.join(self.data_folder,'train','train_labels.npy')))
         elif 'test1' in self.split:
-            self.seismic = np.load(pjoin('data','test_once','test1_seismic.npy'))
-            self.labels = np.load(pjoin('data','test_once','test1_labels.npy'))
+            self.seismic = numpy.load(os.path.join(self.data_folder,'test_once','test1_seismic.npy'))
+            self.labels = numpy.load(os.path.join(self.data_folder,'test_once','test1_labels.npy'))
         elif 'test2' in self.split:
-            self.seismic = np.load(pjoin('data','test_once','test2_seismic.npy'))
-            self.labels = np.load(pjoin('data','test_once','test2_labels.npy'))
+            self.seismic = numpy.load(os.path.join(self.data_folder,'test_once','test2_seismic.npy'))
+            self.labels = numpy.load(os.path.join(self.data_folder,'test_once','test2_labels.npy'))
         else:
             raise ValueError('Unknown split.')
 
         if 'test' not in self.split:
-            # We are in train/val mode. Most likely the test splits are not saved yet, 
-            # so don't attempt to load them.  
+            # We are in train/val mode. Most likely the test splits are not saved yet, so don't attempt to load them.  
             for split in ['train', 'val', 'train_val']:
                 # reading the file names for 'train', 'val', 'trainval'""
-                path = pjoin('data', 'splits', 'patch_' + split + '.txt')
+                path = os.path.join(self.data_folder, 'splits', 'patch_' + split + '.txt')
                 patch_list = tuple(open(path, 'r'))
                 # patch_list = [id_.rstrip() for id_ in patch_list]
                 self.patches[split] = patch_list
         elif 'test' in split:
-            # We are in test mode. Only read the given split. The other one might not 
-            # be available. 
-            path = pjoin('data', 'splits', 'patch_' + split + '.txt')
+            # We are in test mode. Only read the given split. The other one might not be available. 
+            path = os.path.join(self.data_folder, 'splits', 'patch_' + split + '.txt')
             file_list = tuple(open(path,'r'))
             # patch_list = [id_.rstrip() for id_ in patch_list]
             self.patches[split] = patch_list
@@ -61,7 +58,7 @@ class patch_dataset(data.Dataset):
         Only used for train/val!! Not test.
         '''
         assert 'test' not in self.split, 'There should be no padding for test time!'
-        return np.pad(volume,pad_width=self.patch_size,mode='constant', constant_values=255)
+        return numpy.pad(volume,pad_width=self.patch_size,mode='constant', constant_values=255)
         
 
     def __len__(self):
@@ -96,8 +93,8 @@ class patch_dataset(data.Dataset):
         # to be in the BxCxHxW that PyTorch uses: 
         img, lbl = img.T, lbl.T
 
-        img = np.expand_dims(img,0)
-        lbl = np.expand_dims(lbl,0)
+        img = numpy.expand_dims(img,0)
+        lbl = numpy.expand_dims(lbl,0)
 
         img = torch.from_numpy(img).float()
         lbl = torch.from_numpy(lbl).long()
@@ -105,19 +102,19 @@ class patch_dataset(data.Dataset):
         return img, lbl
 
     def get_seismic_labels(self):
-        return np.asarray([ [69,117,180], [145,191,219], [224,243,248], [254,224,144], [252,141,89],
+        return numpy.asarray([ [69,117,180], [145,191,219], [224,243,248], [254,224,144], [252,141,89],
                           [215,48,39]])
 
 
     def decode_segmap(self, label_mask, plot=False):
         """Decode segmentation class labels into a color image
         Args:
-            label_mask (np.ndarray): an (M,N) array of integer values denoting
+            label_mask (numpy.ndarray): an (M,N) array of integer values denoting
               the class label at each spatial location.
             plot (bool, optional): whether to show the resulting color image
               in a figure.
         Returns:
-            (np.ndarray, optional): the resulting decoded color image.
+            (numpy.ndarray, optional): the resulting decoded color image.
         """
         label_colours = self.get_seismic_labels()
         r = label_mask.copy()
@@ -127,7 +124,7 @@ class patch_dataset(data.Dataset):
             r[label_mask == ll] = label_colours[ll, 0]
             g[label_mask == ll] = label_colours[ll, 1]
             b[label_mask == ll] = label_colours[ll, 2]
-        rgb = np.zeros((label_mask.shape[0], label_mask.shape[1], 3))
+        rgb = numpy.zeros((label_mask.shape[0], label_mask.shape[1], 3))
         rgb[:, :, 0] = r / 255.0
         rgb[:, :, 1] = g / 255.0
         rgb[:, :, 2] = b / 255.0
@@ -138,14 +135,15 @@ class patch_dataset(data.Dataset):
             return rgb
 
         
-class section_dataset(data.Dataset):
+class section_dataset(torch.utils.data.Dataset):
     """
         Data loader for the section-based deconvnet
     """
-    def __init__(self, split='train', channel_delta=0, is_transform=True, augmentations=None):
+    def __init__(self, split='train', channel_delta=0, data_folder='data_NL', is_transform=True, augmentations=None):
         self.root = 'data/'
         self.split = split
         self.c_delta = channel_delta
+        self.data_folder = data_folder
         self.is_transform = is_transform
         self.augmentations = augmentations
         self.n_classes = 6 
@@ -154,14 +152,14 @@ class section_dataset(data.Dataset):
 
         if 'test' not in self.split: 
             # Normal train/val mode
-            self.seismic = np.load(pjoin('data','train','train_seismic.npy'))
-            self.labels = np.load(pjoin('data','train','train_labels.npy'))
+            self.seismic = numpy.load(os.path.join(self.data_folder,'train','train_seismic.npy'))
+            self.labels = numpy.load(os.path.join(self.data_folder,'train','train_labels.npy'))
         elif 'test1' in self.split:
-            self.seismic = np.load(pjoin('data','test_once','test1_seismic.npy'))
-            self.labels = np.load(pjoin('data','test_once','test1_labels.npy'))
+            self.seismic = numpy.load(os.path.join(self.data_folder,'test_once','test1_seismic.npy'))
+            self.labels = numpy.load(os.path.join(self.data_folder,'test_once','test1_labels.npy'))
         elif 'test2' in self.split:
-            self.seismic = np.load(pjoin('data','test_once','test2_seismic.npy'))
-            self.labels = np.load(pjoin('data','test_once','test2_labels.npy'))
+            self.seismic = numpy.load(os.path.join(self.data_folder,'test_once','test2_seismic.npy'))
+            self.labels = numpy.load(os.path.join(self.data_folder,'test_once','test2_labels.npy'))
         else:
             raise ValueError('Unknown split.')
 
@@ -170,14 +168,14 @@ class section_dataset(data.Dataset):
             # so don't attempt to load them.  
             for split in ['train', 'val', 'train_val']:
                 # reading the file names for 'train', 'val', 'trainval'""
-                path = pjoin('data', 'splits', 'section_' + split + '.txt')
+                path = os.path.join(self.data_folder, 'splits', 'section_' + split + '.txt')
                 file_list = tuple(open(path, 'r'))
                 file_list = [id_.rstrip() for id_ in file_list]
                 self.sections[split] = file_list
         elif 'test' in split:
             # We are in test mode. Only read the given split. The other one might not 
             # be available. 
-            path = pjoin('data', 'splits', 'section_' + split + '.txt')
+            path = os.path.join(self.data_folder, 'splits', 'section_' + split + '.txt')
             file_list = tuple(open(path,'r'))
             file_list = [id_.rstrip() for id_ in file_list]
             self.sections[split] = file_list
@@ -200,7 +198,7 @@ class section_dataset(data.Dataset):
                     img = self.seismic[slice_number,:,:].transpose((1,0))
                 elif self.c_delta > 0:
                     img = self.seismic[max(0,slice_number-self.c_delta):min(self.seismic.shape[0],slice_number+self.c_delta+1),:,:]
-                    img = np.stack([img[0,:,:], img[img.shape[0]//2,:,:], img[-1,:,:]]).transpose((0,2,1))
+                    img = numpy.stack([img[0,:,:], img[img.shape[0]//2,:,:], img[-1,:,:]]).transpose((0,2,1))
                 else:
                     raise RuntimeError(f'INLINE - No implementation for self.c_delta={self.c_delta}')
             except:
@@ -212,7 +210,7 @@ class section_dataset(data.Dataset):
                     img = self.seismic[:,slice_number,:].transpose((1,0))
                 elif self.c_delta > 0:
                     img = self.seismic[:,max(0,slice_number-self.c_delta):min(self.seismic.shape[1],slice_number+self.c_delta+1),:]
-                    img = np.stack([img[:,0,:], img[:,img.shape[1]//2,:], img[:,-1,:]]).transpose((0,2,1))
+                    img = numpy.stack([img[:,0,:], img[:,img.shape[1]//2,:], img[:,-1,:]]).transpose((0,2,1))
                 else:
                     raise RuntimeError(f'CROSSLINE - No implementation for self.c_delta={self.c_delta}')
             except:
@@ -237,9 +235,9 @@ class section_dataset(data.Dataset):
 
         # to be in the BxCxHxW that PyTorch uses: 
         if len(img.shape) == 2:
-            img = np.expand_dims(img,0)
+            img = numpy.expand_dims(img,0)
         if len(lbl.shape) == 2:
-            lbl = np.expand_dims(lbl,0)
+            lbl = numpy.expand_dims(lbl,0)
 
         img = torch.from_numpy(img).float()
         lbl = torch.from_numpy(lbl).long()
@@ -248,18 +246,18 @@ class section_dataset(data.Dataset):
 
 
     def get_seismic_labels(self):
-        return np.asarray([ [69,117,180], [145,191,219], [224,243,248], [254,224,144], [252,141,89], [215,48,39]])
+        return numpy.asarray([ [69,117,180], [145,191,219], [224,243,248], [254,224,144], [252,141,89], [215,48,39]])
 
 
     def decode_segmap(self, label_mask, plot=False, save_name=None):
         """Decode segmentation class labels into a color image
         Args:
-            label_mask (np.ndarray): an (M,N) array of integer values denoting
+            label_mask (numpy.ndarray): an (M,N) array of integer values denoting
               the class label at each spatial location.
             plot (bool, optional): whether to show the resulting color image
               in a figure.
         Returns:
-            (np.ndarray, optional): the resulting decoded color image.
+            (numpy.ndarray, optional): the resulting decoded color image.
         """
         label_colours = self.get_seismic_labels()
         r = label_mask.copy()
@@ -269,7 +267,7 @@ class section_dataset(data.Dataset):
             r[label_mask == ll] = label_colours[ll, 0]
             g[label_mask == ll] = label_colours[ll, 1]
             b[label_mask == ll] = label_colours[ll, 2]
-        rgb = np.zeros((label_mask.shape[0], label_mask.shape[1], 3))
+        rgb = numpy.zeros((label_mask.shape[0], label_mask.shape[1], 3))
         rgb[:, :, 0] = r / 255.0
         rgb[:, :, 1] = g / 255.0
         rgb[:, :, 2] = b / 255.0

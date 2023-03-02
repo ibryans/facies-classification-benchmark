@@ -15,9 +15,15 @@ from core.augmentations import Compose, AddNoise, RandomRotate, RandomVertically
 from core.metrics import runningScore
 from core.utils import np_to_tb, append_filter
 
-from core.loader.data_loader_F3 import section_dataset
-from core.loader.data_manager_F3 import split_train_val, CustomSampler
+from core.loader.data_loader_NL import section_dataset
+from core.loader.data_manager_NL import split_train_val, CustomSampler
 
+
+data_folders = {
+    'NL' : 'data_NL',
+    'NS' : 'data_NS',
+    'NZ' : 'data_NZ',
+}
 
 # Fix the random seeds: 
 numpy.random.seed(seed=2022)
@@ -28,7 +34,10 @@ if torch.cuda.is_available():
 
 
 def train(args):
+    # Obtaining data folder and setting CPU/GPU device
+    data_folder = data_folders[args.dataset]
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+    
     # Generate the train and validation sets for the model:
     split_train_val(args, per_val=args.per_val)
 
@@ -52,9 +61,9 @@ def train(args):
 
     # Create sampler:
     shuffle = False  # must turn False if using a custom sampler
-    with open(os.path.join('data', 'splits', 'section_train.txt'), 'r') as file_buffer:
+    with open(os.path.join(data_folder, 'splits', 'section_train.txt'), 'r') as file_buffer:
         train_list = file_buffer.read().splitlines()
-    with open(os.path.join('data', 'splits', 'section_val.txt'), 'r') as file_buffer:
+    with open(os.path.join(data_folder, 'splits', 'section_val.txt'), 'r') as file_buffer:
         val_list = file_buffer.read().splitlines()
 
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size,
@@ -244,6 +253,7 @@ if __name__ == '__main__':
     parser.add_argument('--filter',        type=str,   default='None',              help='Add filter as an extra channel/layer', choices=['None', 'gabor','hessian', 'sobel'])
     parser.add_argument('--n_epoch',       type=int,   default=60,                  help='# of the epochs')
 
+    parser.add_argument('--dataset',       type=str,   default='NL',                help='Name of the adopted dataset: NL (Netherlands F3 Block), NS (Nova Scotia Penobscot), NZ (New Zealand Petroleum).', choices=['NL', 'NS', 'NZ'])
     parser.add_argument('--resume',        type=str,   default=None,                help='Path to previous saved model to restart from')
     parser.add_argument('--clip',          type=float, default=0.1,                 help='Max norm of the gradients if clipping. Set to zero to disable. ')
     parser.add_argument('--per_val',       type=float, default=0.1,                 help='percentage of the training data for validation')
@@ -259,11 +269,12 @@ if __name__ == '__main__':
         '--filter', 'gabor',
         '--n_epoch', '60',
         
+        '--dataset', 'NL',
         '--clip', '0.1',
         '--per_val', '0.1',
         '--aug', 
         '--class_weights'
     ]
 
-    args = parser.parse_args(custom_params)
+    args = parser.parse_args(None)
     train(args)
